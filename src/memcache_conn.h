@@ -3,12 +3,13 @@
 #ifndef _MEMCACHED_CONN_H
 #define _MEMCACHED_CONN_H
 
+#include "connections.h"
+
 #include <stdbool.h>
 
-typedef struct _memcache_conn_t {
-	int sfd;
-} memcached_t;
+typedef conn memcached_t;
 
-memcached_t* memcache_connect(char *host);
+memcached_t* memcache_connect(struct event_base *base, char *host);
+bool memcache_get(conn *mc, conn *c, char *key);
 
 #endif

@@ -8,7 +8,7 @@
 
 extern settings config;
 void event_handler(const int fd, const short which, void *arg);
-void out_string(conn *c, const char *str);
+void error_response(conn *c, const char *str);
 
 #endif
 

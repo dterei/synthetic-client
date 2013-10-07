@@ -18,18 +18,29 @@
 #define ITEM_LIST_INITIAL 200
 // Initial TCP packet max size (for handling MTU gracefully).
 #define MAX_PAYLOAD_SIZE 1400
+// Initial queue size for memcached rpc's
+#define MEMCACHE_RPC_QUEUE 2048
+
+// connection type.
+enum conn_type {
+	client_conn,
+	memcached_conn
+};
 
 // Representation of a connection. Used for both client connections and our
 // listening socket.
 typedef struct _conn {
+	enum conn_type type;             // type of connection (for casting).
 	struct _conn *next;              // allow link-listing of connections.
 
+	// socket handling.
 	int sfd;                         // underlying socket.
 	struct event event;
 	short ev_flags;
 	short old_ev_flags;              // used for save ev_flags over timeout.
 	struct _worker_thread_t *thread; // thread managing this connection.
 
+	// state handling.
 	enum conn_states state;          // fsm state.
 	enum conn_states after_write;    // fsm state to transition to after writing wbuf.
 	enum conn_states after_timeout;  // fsm state to transition to after timeout.
@@ -37,6 +48,7 @@ typedef struct _conn {
 	int cmd;                         // which memcached cmd are we processing.
 	suseconds_t timeout;             // amount to delay connection for (microseconds).
 
+	// rbuf -- read input buffer (only one).
 	// [..........|...........^...................]
 	// ^          ^                               ^
 	// rbuf       rcurr       rcurr+rbytes        rbuf+rsize
@@ -46,6 +58,7 @@ typedef struct _conn {
 	char *rcurr;                     // pointer into rbuf to end of parsed data.
 	int  rbytes;                     // how much data, starting from rcur, do we have unparsed.
 
+	// wbuf -- only used for error_response.
 	// [..........|...........^...................]
 	// ^          ^                               ^
 	// wbuf       wcurr       wcurr+wbytes        wbuf+wsize
@@ -57,6 +70,7 @@ typedef struct _conn {
 
 	int sbytes;                      // bytes to swallow of the wire.
 
+	// iovec & msghdr are used for vectored output.
 	struct iovec *iov;
 	int    iovsize;                  // number of elements allocated in iov[].
 	int    iovused;                  // number of elements used in iov[].
@@ -67,6 +81,10 @@ typedef struct _conn {
 	int    msgcurr;                  // element in msglist[] being transmitted now.
 	int    msgbytes;                 // number of bytes in current msg.
 
+	// item reference counting.
+	// The relation between an item and it's msghdr/iovec structure is not
+	// recorded. So to be safe we can only release items when we clear out all
+	// pending output data.
 	item   **ilist;                  // list of items we currently have retained
 	                                 // owned. Done for ref-counting purposes
 												// while we write out data associated with
@@ -74,11 +92,21 @@ typedef struct _conn {
 	int    isize;                    // number of elements in ilist.
 	item   **icurr;                  // current free slot in ilist.
 	int    ileft;                    // space left in ilist for allocaiton.
+
+	// memcached backend rpcs. (used only by memcached_conn types).
+ 	struct _conn **rpc;              // inflight RPC's for connections (ordered queue).
+	int          rpcsize;            // number of elements allocated in rpc[].
+ 	int          rpcused;            // number of elements used in rpc[].
+	int          rpccurr;            // first element in rpc[] not yet sent.
+
+	// how many memcached rpc's a client_conn is waiting on.
+	int          rpcwaiting;
 } conn;
 
 // new connection management.
 void conn_init(void);
-conn *conn_new(const int sfd,
+conn *conn_new(enum conn_type type,
+               const int sfd,
                enum conn_states init_state,
                const int event_flags,
                const int read_buffer_size,
@@ -93,6 +121,7 @@ void conn_shrink(conn *c);
 int conn_add_msghdr(conn *c);
 bool conn_add_iov(conn *c, const void *buf, int len);
 bool conn_expand_items(conn *c);
+bool conn_ensure_rpc_space(conn *c);
 
 #endif
 

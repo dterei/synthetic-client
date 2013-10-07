@@ -31,7 +31,7 @@ void process_get_command(conn *c, token_t *tokens, size_t ntokens,
 			nkey = key_token->length;
 
 			if(nkey > KEY_MAX_LENGTH) {
-				out_string(c, "CLIENT_ERROR bad command line format");
+				error_response(c, "CLIENT_ERROR bad command line format");
 				return;
 			}
 
@@ -51,9 +51,9 @@ void process_get_command(conn *c, token_t *tokens, size_t ntokens,
 				//   "<data>\r\n"
 				// The <data> element is stored on the connection item list, not on
 				// the iov list.
-				if (!conn_add_iov(c, "VALUE ", 6) != 0 ||
-				    !conn_add_iov(c, ITEM_key(it), it->nkey) != 0 ||
-				    !conn_add_iov(c, ITEM_suffix(it), it->nsuffix + it->nbytes) != 0) {
+				if (!conn_add_iov(c, "VALUE ", 6) ||
+				    !conn_add_iov(c, ITEM_key(it), it->nkey) ||
+				    !conn_add_iov(c, ITEM_suffix(it), it->nsuffix + it->nbytes)) {
 					item_remove(it);
 					break;
 				}
@@ -95,7 +95,7 @@ void process_get_command(conn *c, token_t *tokens, size_t ntokens,
 	// to add END\r\n to the buffer, because it might not end in \r\n. So we
 	// send SERVER_ERROR instead.
 	if (key_token->value != NULL || !conn_add_iov(c, "END\r\n", 5) != 0) {
-		out_string(c, "SERVER_ERROR out of memory writing get response");
+		error_response(c, "SERVER_ERROR out of memory writing get response");
 	} else {
 		if (config.use_dist) {
 			double r = config.dist_arg1 + gsl_ran_gaussian(config.r, config.dist_arg2);
@@ -119,12 +119,12 @@ void process_update_command(conn *c, token_t *tokens,
 
 	if (tokens[KEY_TOKEN].length > KEY_MAX_LENGTH ||
 	    !safe_strtol(tokens[4].value, (int32_t *)&vlen)) {
-		out_string(c, "CLIENT_ERROR bad command line format");
+		error_response(c, "CLIENT_ERROR bad command line format");
 		return;
 	}
 
 	if (vlen < 0) {
-		out_string(c, "CLIENT_ERROR bad command line format");
+		error_response(c, "CLIENT_ERROR bad command line format");
 		return;
 	}
 

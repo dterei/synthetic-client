@@ -82,7 +82,8 @@ static bool conn_add_to_freelist(conn *c) {
 }
 
 // Create a new connection value.
-conn *conn_new(const int sfd,
+conn *conn_new(enum conn_type type,
+               const int sfd,
                enum conn_states init_state,
                const int event_flags,
                const int read_buffer_size,
@@ -109,6 +110,9 @@ conn *conn_new(const int sfd,
 		c->isize = ITEM_LIST_INITIAL;
 		c->ilist = (item **)malloc(sizeof(item *) * c->isize);
 
+		c->rpcsize = MEMCACHE_RPC_QUEUE;
+		c->rpc = (conn **)malloc(sizeof(conn *) * c->rpcsize);
+
 		if (c->rbuf == NULL || c->wbuf == NULL ||  c->iov == NULL
 		    || c->msglist == NULL || c->ilist == NULL) {
 			conn_free(c);
@@ -117,6 +121,7 @@ conn *conn_new(const int sfd,
 		}
 	}
 
+	c->type = type;
 	c->sfd = sfd;
 	c->state = init_state;
 	c->after_write = init_state;
@@ -128,6 +133,9 @@ conn *conn_new(const int sfd,
 	c->msgused = 0;
 	c->ileft = 0;
 	c->icurr = c->ilist;
+	c->rpcused = 0;
+	c->rpccurr = 0;
+	c->rpcwaiting = 0;
 
 	event_set(&c->event, sfd, event_flags, event_handler, (void *)c);
 	event_base_set(base, &c->event);
@@ -152,6 +160,7 @@ static void conn_free(conn *c) {
 		if (c->iov)  free(c->iov);
 		if (c->msglist) free(c->msglist);
 		if (c->ilist) free(c->ilist);
+		if (c->rpc) free(c->rpc);
 
 		free(c);
 	}
@@ -260,7 +269,7 @@ int conn_add_msghdr(conn *c) {
 // Ensures that there is room for another struct iovec in a connection's
 // iov list.
 // @return true on success, false on out-of-memory.
-static bool ensure_iov_space(conn *c) {
+static bool conn_ensure_iov_space(conn *c) {
 	assert(c != NULL);
 
 	if (c->iovused >= c->iovsize) {
@@ -303,7 +312,7 @@ bool conn_add_iov(conn *c, const void *buf, int len) {
 			m = &c->msglist[c->msgused - 1];
 		}
 
-		if (!ensure_iov_space(c)) return false;
+		if (!conn_ensure_iov_space(c)) return false;
 
 		// If the fragment is too big to fit in the datagram, split it up.
 		if (limit_to_mtu && len + c->msgbytes > MAX_PAYLOAD_SIZE) {
@@ -338,5 +347,19 @@ bool conn_expand_items(conn *c) {
 	} else {
 		return false;
 	}
+}
+
+// grow the rpc queue if needed.
+bool conn_ensure_rpc_space(conn *mc) {
+	assert(mc->type == memcached_conn);
+
+	conn **rpc;
+	if (mc->rpcsize == mc->rpcused) {
+		rpc = realloc(mc->rpc, sizeof(conn **) * mc->rpcsize * 2);
+		if (!rpc) return false;
+		mc->rpc = rpc;
+		mc->rpcsize *= 2;
+	}
+	return true;
 }
 

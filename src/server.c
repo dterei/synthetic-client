@@ -205,7 +205,7 @@ static int server_socket(int port) {
 			return 1;
 		}
 
-		if (!(c = conn_new(sfd, conn_listening,
+		if (!(c = conn_new(client_conn, sfd, conn_listening,
 		                   EV_READ | EV_PERSIST,
 		                   1, main_base))) {
 			fprintf(stderr, "failed to create listening connection\n");
@@ -334,7 +334,7 @@ static void drive_machine(conn *c) {
 					break;
 				case READ_MEMORY_ERROR:
 					c->rbytes = 0; // ignore what we read.
-					out_string(c, "SERVER_ERROR out of memory reading request");
+					error_response(c, "SERVER_ERROR out of memory reading request");
 					c->after_write = conn_closing;
 					break;
 				}
@@ -350,7 +350,7 @@ static void drive_machine(conn *c) {
 			case conn_read_value:
 				// read value just swallows the value.
 				if (c->sbytes == 0) {
-					out_string(c, "STORED");
+					error_response(c, "STORED");
 					break;
 				}
 				// fall through...
@@ -414,6 +414,9 @@ static void drive_machine(conn *c) {
 				switch (transmit(c)) {
 				case TRANSMIT_COMPLETE:
 					if (c->state == conn_mwrite) {
+						// we reach this when all remaining data is output, so we know we
+						// can safely release _all_ retained items. We perhaps could have
+						// released them earlier but this way is easy and safe.
 						while (c->ileft > 0) {
 							// release the item.
 							item *it = *(c->icurr);
@@ -607,13 +610,13 @@ static void process_command(conn *c, char *command) {
 	c->msgused = 0;
 	c->iovused = 0;
 	if (!conn_add_msghdr(c) != 0) {
-		out_string(c, "SERVER_ERROR out of memory preparing response");
+		error_response(c, "SERVER_ERROR out of memory preparing response");
 		return;
 	}
 
 	// parse_command also handles dispatching it.
 	if (!parse_command(c, command)) {
-		out_string(c, "ERROR");
+		error_response(c, "ERROR");
 	}
 }
 
@@ -676,9 +679,9 @@ static write_result transmit(conn *c) {
 	}
 }
 
-// write out a string to the connection, clearing an existing pending data.
-// This is usually used for error cases.
-void out_string(conn *c, const char *str) {
+// Write out a string to the connection, clearing an existing pending data.
+// Only used for error cases.
+void error_response(conn *c, const char *str) {
 	size_t len;
 
 	assert(c != NULL);

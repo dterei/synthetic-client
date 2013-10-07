@@ -175,17 +175,18 @@ static void setup_thread(worker_thread_t *t) {
 		fprintf(stderr, "connecting to memcached backends...\n");
 	}
 	
+	// setup memcache connections
 	t->memcache_used = 0;
 	t->memcache = malloc(sizeof(memcached_t *) * config.backends.len);
 	memcached_t *mc;
 	for (int i = 0; i < config.backends.len; i++) {
-		mc = memcache_connect(config.backends.hosts[i]);
+		mc = memcache_connect(t->base, config.backends.hosts[i]);
 		if (mc != NULL) {
 			t->memcache[t->memcache_used] = mc;
+			t->memcache_used++;
 		} else {
 			fprintf(stderr, "couldn't connect to memcached backed %s\n",
 				config.backends.hosts[i]);
-			continue;
 		}
 	}
 }
@@ -239,7 +240,7 @@ static void thread_new_conn_handler(int fd, short which, void *arg) {
 	case 'c':
 		new_conn = conn_queue_pop(me->new_conn_queue);
 		if (NULL != new_conn) {
-			conn *c = conn_new(new_conn->sfd, new_conn->init_state,
+			conn *c = conn_new(client_conn, new_conn->sfd, new_conn->init_state,
 			                   new_conn->event_flags, new_conn->read_buffer_size,
 			                   me->base);
 			if (c == NULL) {

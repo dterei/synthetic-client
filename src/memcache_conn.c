@@ -14,7 +14,7 @@
 static char *memcache_port = "11211";
 
 // connect to a memcache server
-memcached_t* memcache_connect(char *host) {
+memcached_t* memcache_connect(struct event_base *base, char *host) {
 	int flags = 1, error = 0, sfd;
 	struct addrinfo hints = { .ai_socktype = SOCK_STREAM };
 	struct addrinfo *ai;
@@ -76,8 +76,30 @@ memcached_t* memcache_connect(char *host) {
 		fprintf(stderr, "success!\n");
 	}
 
-	mc = malloc(sizeof(memcached_t));
-	mc->sfd = sfd;
+	mc = conn_new(memcached_conn, sfd, conn_listening,
+                 EV_READ | EV_PERSIST, DATA_BUFFER_SIZE, base);
 	return mc;
+}
+
+// get a memcache value associated with the given key.
+bool memcache_get(conn *mc, conn *c, char *key) {
+	int keylen = strnlen(key, KEY_MAX_LENGTH);
+	if (!conn_add_iov(mc, "GET ", 4) ||
+	    !conn_add_iov(mc, key, keylen) ||
+		 !conn_add_iov(mc, "\r\n", 2)) {
+		if (config.verbose > 0) {
+			fprintf(stderr, "memcache_get(): error with conn_add_iov");
+		}
+		return false;
+	}
+	
+	// queue the rpc on the memcached connection.
+	conn_ensure_rpc_space(mc);
+	mc->rpc[mc->rpcused] = c;
+	mc->rpcused++;
+	
+	// increase the wait count of the client connection.
+	c->rpcwaiting++;
+	return true;
 }
 
