@@ -134,7 +134,7 @@ conn *conn_new(enum conn_type type,
 	c->ileft = 0;
 	c->icurr = c->ilist;
 	c->rpcused = 0;
-	c->rpccurr = 0;
+	c->rpcdone = 0;
 	c->rpcwaiting = 0;
 
 	event_set(&c->event, sfd, event_flags, event_handler, (void *)c);
@@ -297,6 +297,7 @@ static bool conn_ensure_iov_space(conn *c) {
 // @return true on success, false on out-of-memory.
 bool conn_add_iov(conn *c, const void *buf, int len) {
 	assert(c != NULL);
+	assert(c->msglist != NULL);
 
 	int leftover;
 	do {
@@ -322,7 +323,8 @@ bool conn_add_iov(conn *c, const void *buf, int len) {
 			leftover = 0;
 		}
 
-		m = &c->msglist[c->msgused - 1];
+		assert(m != NULL);
+		assert(m->msg_iov != NULL);
 		m->msg_iov[m->msg_iovlen].iov_base = (void *)buf;
 		m->msg_iov[m->msg_iovlen].iov_len = len;
 
@@ -354,11 +356,20 @@ bool conn_ensure_rpc_space(conn *mc) {
 	assert(mc->type == memcached_conn);
 
 	conn **rpc;
-	if (mc->rpcsize == mc->rpcused) {
-		rpc = realloc(mc->rpc, sizeof(conn **) * mc->rpcsize * 2);
-		if (!rpc) return false;
-		mc->rpc = rpc;
-		mc->rpcsize *= 2;
+	if (mc->rpcused >= mc->rpcsize) {
+		if (mc->rpcdone == 0) {
+			// expand queue as out of slots.
+			rpc = realloc(mc->rpc, sizeof(conn **) * mc->rpcsize * 2);
+			if (!rpc) return false;
+			mc->rpc = rpc;
+			mc->rpcsize *= 2;
+		} else {
+			// try remove dead (done) rpc items for space.
+			int used = mc->rpcused - mc->rpcdone;
+			memmove(mc->rpc, mc->rpc + mc->rpcdone, used);
+			mc->rpcused = used;
+			mc->rpcdone = 0;
+		}
 	}
 	return true;
 }

@@ -70,16 +70,16 @@ typedef struct _conn {
 
 	int sbytes;                      // bytes to swallow of the wire.
 
-	// iovec & msghdr are used for vectored output.
-	struct iovec *iov;
-	int    iovsize;                  // number of elements allocated in iov[].
-	int    iovused;                  // number of elements used in iov[].
-
+	// msghdr & iovec are used for vectored output. (flat arrays).
 	struct msghdr *msglist;
 	int    msgsize;                  // number of elements allocated in msglist[].
 	int    msgused;                  // number of elements used in msglist[].
 	int    msgcurr;                  // element in msglist[] being transmitted now.
 	int    msgbytes;                 // number of bytes in current msg.
+
+	struct iovec *iov;
+	int    iovsize;                  // number of elements allocated in iov[].
+	int    iovused;                  // number of elements used in iov[].
 
 	// item reference counting.
 	// The relation between an item and it's msghdr/iovec structure is not
@@ -93,14 +93,18 @@ typedef struct _conn {
 	item   **icurr;                  // current free slot in ilist.
 	int    ileft;                    // space left in ilist for allocaiton.
 
+	// how many memcached rpc's a client_conn is waiting on.
+	int          rpcwaiting;
+
 	// memcached backend rpcs. (used only by memcached_conn types).
+	// [........|..........|...........]
+	// ^        ^          ^           ^
+	// rpc      rpcdone    rpcused     rpcsize
  	struct _conn **rpc;              // inflight RPC's for connections (ordered queue).
 	int          rpcsize;            // number of elements allocated in rpc[].
  	int          rpcused;            // number of elements used in rpc[].
-	int          rpccurr;            // first element in rpc[] not yet sent.
-
-	// how many memcached rpc's a client_conn is waiting on.
-	int          rpcwaiting;
+	int          rpcdone;            // last+1 element in rpc[] that we've
+												// received response for.
 } conn;
 
 // new connection management.

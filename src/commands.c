@@ -4,6 +4,7 @@
 #include "connections.h"
 #include "protocol.h"
 #include "server.h"
+#include "threads.h"
 #include "utils.h"
 
 #include <gsl/gsl_randist.h>
@@ -11,7 +12,10 @@
 #include <assert.h>
 #include <stdio.h>
 
-// process a memcached get(s) command. (we don't support CAS).
+static char *default_key = "skeleton";
+
+// process a memcached get(s) command. (we don't support CAS). This function
+// performs the request parsing and setup of backend RPC's.
 void process_get_command(conn *c, token_t *tokens, size_t ntokens,
                                 bool return_cas) {
 	char *key;
@@ -20,83 +24,101 @@ void process_get_command(conn *c, token_t *tokens, size_t ntokens,
 	item *it;
 	token_t *key_token = &tokens[KEY_TOKEN];
 	char *suffix;
+	worker_thread_t *t = c->thread;
+	memcached_t *mc;
 
 	assert(c != NULL);
 
-	// process the whole command line, (only part of it may be tokenized right now)
-	do {
-		// process all tokenized keys at this stage.
-		while(key_token->length != 0) {
-			key = key_token->value;
-			nkey = key_token->length;
+	key  = key_token->value;
+	nkey = key_token->length;
 
-			if(nkey > KEY_MAX_LENGTH) {
-				error_response(c, "CLIENT_ERROR bad command line format");
+	if(nkey > KEY_MAX_LENGTH) {
+		error_response(c, "CLIENT_ERROR bad command line format");
+		return;
+	}
+
+	// lookup key-value.
+	it = item_get(key, nkey);
+
+	// hit.
+	if (it) {
+		if (i >= c->isize && !conn_expand_items(c)) {
+			item_remove(it);
+			error_response(c, "SERVER_ERROR out of memory writing get response");
+			return;
+		}
+		// add item to remembered list (i.e., we've taken ownership of them
+		// through refcounting and later must release them once we've
+		// written out the iov associated with them).
+		item_update(it);
+		*(c->ilist + i) = it;
+		i++;
+	}
+
+	// make sure it's a single get
+	key_token++;
+	if (key_token->length != 0 || key_token->value != NULL) {
+		error_response(c, "SERVER_ERROR only support single `get`");
+		return;
+	}
+
+	// update our rememberd reference set.
+	c->icurr = c->ilist;
+	c->ileft = i;
+
+
+	// setup RPC calls.
+	for (i = 0; i < t->memcache_used; i++) {
+		mc = t->memcache[i];
+		if (!conn_add_msghdr(mc) != 0) {
+			error_response(mc, "SERVER_ERROR out of memory preparing response");
+			return;
+		}
+		memcache_get(mc, c, default_key);
+	}
+	conn_set_state(c, conn_rpc_wait);
+}
+
+// complete the response to a get request.
+void finish_get_command(conn *c) {
+	item *it;
+	int i;
+
+	// setup all items for writing out.
+	for (i = 0; i < c->ileft; i++) {
+		it = *(c->ilist + i);
+		if (it) {
+			// Construct the response. Each hit adds three elements to the
+			// outgoing data list:
+			//   "VALUE <key> <flags> <data_length>\r\n"
+			//   "<data>\r\n"
+			// The <data> element is stored on the connection item list, not on
+			// the iov list.
+			if (!conn_add_iov(c, "VALUE ", 6) ||
+				 !conn_add_iov(c, ITEM_key(it), it->nkey) ||
+				 !conn_add_iov(c, ITEM_suffix(it), it->nsuffix + it->nbytes)) {
+				item_remove(it);
+				error_response(c, "SERVER_ERROR out of memory writing get response");
 				return;
 			}
 
-			// lookup key-value.
-			it = item_get(key, nkey);
-			
-			// hit.
-			if (it) {
-				if (i >= c->isize && !conn_expand_items(c)) {
-					item_remove(it);
-					break;
-				}
-
-				// Construct the response. Each hit adds three elements to the
-				// outgoing data list:
-				//   "VALUE <key> <flags> <data_length>\r\n"
-				//   "<data>\r\n"
-				// The <data> element is stored on the connection item list, not on
-				// the iov list.
-				if (!conn_add_iov(c, "VALUE ", 6) ||
-				    !conn_add_iov(c, ITEM_key(it), it->nkey) ||
-				    !conn_add_iov(c, ITEM_suffix(it), it->nsuffix + it->nbytes)) {
-					item_remove(it);
-					break;
-				}
-
-				if (config.verbose > 1) {
-					fprintf(stderr, ">%d sending key %s\n", c->sfd, key);
-				}
-
-				// add item to remembered list (i.e., we've taken ownership of them
-				// through refcounting and later must release them once we've
-				// written out the iov associated with them).
-				item_update(it);
-				*(c->ilist + i) = it;
-				i++;
+			if (config.verbose > 1) {
+				fprintf(stderr, ">%d sending key %s\n", c->sfd, ITEM_key(it));
 			}
-
-			key_token++;
+		} else {
+			fprintf(stderr, "ERROR corrupted ilist!\n");
+			exit(1);
 		}
-
-		/*
-		 * If the command string hasn't been fully processed, get the next set
-		 * of tokens.
-		 */
-		if(key_token->value != NULL) {
-			ntokens = tokenize_command(key_token->value, tokens, MAX_TOKENS);
-			key_token = tokens;
-		}
-
-	} while(key_token->value != NULL);
-
-	c->icurr = c->ilist;
-	c->ileft = i;
+	}
 
 	if (config.verbose > 1) {
 		fprintf(stderr, ">%d END\n", c->sfd);
 	}
 
-	// If the loop was terminated because of out-of-memory, it is not reliable
-	// to add END\r\n to the buffer, because it might not end in \r\n. So we
-	// send SERVER_ERROR instead.
-	if (key_token->value != NULL || !conn_add_iov(c, "END\r\n", 5) != 0) {
+	if (!conn_add_iov(c, "END\r\n", 5) != 0) {
 		error_response(c, "SERVER_ERROR out of memory writing get response");
 	} else {
+		// random delay according to distribution.
 		if (config.use_dist) {
 			double r = config.dist_arg1 + gsl_ran_gaussian(config.r, config.dist_arg2);
 			fprintf(stderr, "delay: %f\n", r);

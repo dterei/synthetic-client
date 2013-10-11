@@ -1,5 +1,6 @@
 #include "settings.h"
 
+#include <err.h>
 #include <gsl/gsl_rng.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -9,11 +10,9 @@
 // print command line usage.
 void usage(void) {
 	printf("-h          print this help and exit\n"
-	       "-p <num>    TCP port number to listen on (default: 11211)\n"
+	       "-p <num>    TCP port number to listen on (default: 11210)\n"
 	       "-t <num>    number of threads to use (default: 4)\n"
-			 "-s <server>   memcache server to connect to at backend\n"
-			 "-d <num>    normal distribution mean (default: 0)\n"
-			 "-D <num>    normal distribution stddev (default: 0)\n"
+			 "-s <server> memcache server to connect to at backend\n"
 	       "-v          verbose (print errors/warnings while in event loop)\n"
 	       "-vv         very verbose (also print client commands/reponses)\n"
 	       "-vvv        extremely verbose (also print internal state transitions)\n");
@@ -25,7 +24,7 @@ settings settings_init(void) {
 	settings s;
 	s.verbose = 0;
 	s.threads = 1;
-	s.tcpport = 11211;
+	s.tcpport = 11210;
 	s.dist_arg1 = 0;
 	s.dist_arg2 = 0;
 	s.r = gsl_rng_alloc(gsl_rng_taus);
@@ -87,6 +86,10 @@ bool settings_parse(int argc, char **argv, settings *s) {
 			fprintf(stderr, "Illegal argument \"%c\"\n", c);
 			return false;
 		}
+	}
+
+	if (s->backends.len <= 0) {
+		errx(1, "Must include at least one memcached RPC backend!\n");
 	}
 	return true;
 }

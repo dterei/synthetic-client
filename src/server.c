@@ -12,6 +12,7 @@
 // Implemented commands:
 // * GET -- just respond with a fixed value to every single key.
 //
+#include "commands.h"
 #include "connections.h"
 #include "fsm.h"
 #include "items.h"
@@ -21,6 +22,7 @@
 #include "threads.h"
 
 #include <assert.h>
+#include <err.h>
 #include <errno.h>
 #include <event.h>
 #include <fcntl.h>
@@ -340,7 +342,7 @@ static void drive_machine(conn *c) {
 				}
 				break;
 
-			case conn_parse_cmd :
+			case conn_parse_cmd:
 				if (!read_command(c)) {
 					// we need more data!
 					conn_set_state(c, conn_waiting);
@@ -393,6 +395,19 @@ static void drive_machine(conn *c) {
 					}
 					conn_set_state(c, conn_closing);
 				}
+				break;
+
+			case conn_rpc_wait:
+				// stop listening for events, we'll awaken when RPC's done.
+				if (!conn_update_event(c, 0)) {
+					conn_set_state(c, conn_closing);
+					break;
+				}
+				stop = true;
+				break;
+
+			case conn_rpc_done:
+				finish_get_command(c);
 				break;
 
 			case conn_write:
@@ -603,9 +618,8 @@ static void process_command(conn *c, char *command) {
 		fprintf(stderr, "<%d %s\n", c->sfd, command);
 	}
 
-	// for commands set/add/replace, we build an item and read the data directly
-	// into it, then continue in nread_complete().
-
+	// We reset the output buffers as we are reading now. We keep
+	// reading/writing as exclusive modes with no overlap.
 	c->msgcurr = 0;
 	c->msgused = 0;
 	c->iovused = 0;
@@ -614,9 +628,11 @@ static void process_command(conn *c, char *command) {
 		return;
 	}
 
-	// parse_command also handles dispatching it.
-	if (!parse_command(c, command)) {
+	// `parse_command` also handles dispatching.
+	if (c->type == client_conn && !parse_command(c, command)) {
 		error_response(c, "ERROR");
+	} else if (c->type == memcached_conn && !memcached_response(c, command)) {
+		err(1, "parse_rpc(): unknown response!");
 	}
 }
 
@@ -630,12 +646,12 @@ static void process_command(conn *c, char *command) {
 static write_result transmit(conn *c) {
 	assert(c != NULL);
 
-	if (c->msgcurr < c->msgused &&
-	    c->msglist[c->msgcurr].msg_iovlen == 0) {
-		/* Finished writing the current msg; advance to the next. */
+	// check if current msg finished and more msgs remaining.
+	if (c->msgcurr < c->msgused && c->msglist[c->msgcurr].msg_iovlen == 0) {
 		c->msgcurr++;
 	}
 
+	// check remaining messages.
 	if (c->msgcurr < c->msgused) {
 		ssize_t res;
 		struct msghdr *m = &c->msglist[c->msgcurr];
