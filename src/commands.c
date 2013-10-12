@@ -7,10 +7,9 @@
 #include "threads.h"
 #include "utils.h"
 
-#include <gsl/gsl_randist.h>
-
 #include <assert.h>
 #include <stdio.h>
+#include <stdlib.h>
 
 static char *default_key = "skeleton";
 
@@ -118,17 +117,7 @@ void finish_get_command(conn *c) {
 	if (!conn_add_iov(c, "END\r\n", 5) != 0) {
 		error_response(c, "SERVER_ERROR out of memory writing get response");
 	} else {
-		// random delay according to distribution.
-		if (config.use_dist) {
-			double r = config.dist_arg1 + gsl_ran_gaussian(config.r, config.dist_arg2);
-			fprintf(stderr, "delay: %f\n", r);
-			conn_set_state(c, conn_timeout);
-			c->after_timeout = conn_mwrite;
-			c->timeout = r;
-			c->msgcurr = 0;
-		} else {
-			conn_set_state(c, conn_mwrite);
-		}
+		conn_set_state(c, conn_mwrite);
 	}
 }
 
