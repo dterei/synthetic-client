@@ -1,4 +1,4 @@
-CC=gcc
+CC=c99
 CFLAGS=-O2 -D_GNU_SOURCE
 LDFLAGS=-levent -pthread -lgsl -lgslcblas
 

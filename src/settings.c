@@ -64,7 +64,8 @@ bool settings_parse(int argc, char **argv, settings *s) {
 		case 's':
 			len = strnlen(optarg, MAX_SERVER_STRING) + 1;
 			str = malloc(sizeof(char) * len);
-			strlcpy(str, optarg, len);
+			strncpy(str, optarg, len);
+			str[len - 1] = '\0';
 			s->backends.hosts[s->backends.len] = str;
 			s->backends.len++;
 			break;
