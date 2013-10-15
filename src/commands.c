@@ -36,7 +36,7 @@ void process_get_command(conn *c, token_t *tokens, size_t ntokens,
 	if (config.use_dist) {
 		long size = config.dist_arg1 + gsl_ran_gaussian(config.r, config.dist_arg2);
 		if (config.verbose > 1) {
-			fprintf(stderr, "allocated blob: %d\n", size);
+			fprintf(stderr, "allocated blob: %ld\n", size);
 		}
 		c->mem_blob = malloc(sizeof(char) * size);
 	}
