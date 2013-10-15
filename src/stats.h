@@ -7,7 +7,7 @@
 
 typedef struct _client_stats {
 	pthread_mutex_t lock;
-	short refcnt;
+	unsigned short refcnt;
 	struct _client_stats *next;
 	int client_id;
 	int total_connections;
@@ -17,7 +17,7 @@ typedef struct _client_stats {
 
 typedef struct _stats {
 	pthread_mutex_t lock;
-	short refcnt;
+	unsigned short refcnt;
 	int clients;
 	int map_size;
 	client_stats **map;

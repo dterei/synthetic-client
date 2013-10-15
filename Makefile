@@ -1,5 +1,5 @@
-CC=c99
-CFLAGS=-O2 -D_GNU_SOURCE
+CC=cc
+CFLAGS=-O2 -D_GNU_SOURCE -std=c99
 LDFLAGS=-levent -pthread -lgsl -lgslcblas
 
 EXECUTABLE=server
