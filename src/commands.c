@@ -65,7 +65,6 @@ void process_get_command(conn *c, token_t *tokens, size_t ntokens,
 	c->icurr = c->ilist;
 	c->ileft = i;
 
-
 	// setup RPC calls.
 	for (i = 0; i < t->memcache_used; i++) {
 		mc = t->memcache[i];

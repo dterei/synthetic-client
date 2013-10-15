@@ -3,6 +3,7 @@
 #include "connections.h"
 #include "items.h"
 #include "server.h"
+#include "stats.h"
 
 #include <assert.h>
 #include <event.h>
@@ -83,6 +84,7 @@ static bool conn_add_to_freelist(conn *c) {
 
 // Create a new connection value.
 conn *conn_new(enum conn_type type,
+					const int client_id,
                const int sfd,
                enum conn_states init_state,
                const int event_flags,
@@ -121,6 +123,7 @@ conn *conn_new(enum conn_type type,
 		}
 	}
 
+	c->client_id = client_id;
 	c->type = type;
 	c->sfd = sfd;
 	c->state = init_state;
@@ -136,6 +139,14 @@ conn *conn_new(enum conn_type type,
 	c->rpcused = 0;
 	c->rpcdone = 0;
 	c->rpcwaiting = 0;
+
+	client_stats *cs = get_client_stats(config.stats, c->client_id);
+	mutex_lock(&cs->lock);
+	cs->total_connections++;
+	cs->live_connections++;
+	mutex_unlock(&cs->lock);
+	// NOTE: we've coallasced a decr + incr for local var and conn reference.
+	c->stats = cs;
 
 	event_set(&c->event, sfd, event_flags, event_handler, (void *)c);
 	event_base_set(base, &c->event);
@@ -155,6 +166,7 @@ conn *conn_new(enum conn_type type,
 // Frees a connection.
 static void conn_free(conn *c) {
 	if (c) {
+		refcount_decr(&c->stats->refcnt, &c->stats->lock);
 		if (c->rbuf) free(c->rbuf);
 		if (c->wbuf) free(c->wbuf);
 		if (c->iov)  free(c->iov);

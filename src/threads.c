@@ -20,6 +20,7 @@ static void thread_new_conn_handler(int fd, short which, void *arg);
 
 /* An item in the connection queue. */
 typedef struct _new_conn_t {
+	 int client_id;
     int sfd;                     // socket
     enum conn_states init_state; // socket starting fsm state
     int event_flags;             // event flags to apply
@@ -240,7 +241,7 @@ static void thread_new_conn_handler(int fd, short which, void *arg) {
 	case 'c':
 		new_conn = conn_queue_pop(me->new_conn_queue);
 		if (NULL != new_conn) {
-			conn *c = conn_new(client_conn, new_conn->sfd, new_conn->init_state,
+			conn *c = conn_new(client_conn, new_conn->client_id, new_conn->sfd, new_conn->init_state,
 			                   new_conn->event_flags, new_conn->read_buffer_size,
 			                   me->base);
 			if (c == NULL) {
@@ -267,6 +268,7 @@ void dispatch_conn_new(int sfd, enum conn_states init_state, int event_flags,
 	last_thread = (last_thread + 1) % config.threads;
 	worker_thread_t *thread = threads + last_thread;
 
+	new_conn->client_id = rand();
 	new_conn->sfd = sfd;
 	new_conn->init_state = init_state;
 	new_conn->event_flags = event_flags;

@@ -83,7 +83,7 @@ memcached_t* memcache_connect(struct event_base *base, char *host) {
 		fprintf(stderr, "success!\n");
 	}
 
-	mc = conn_new(memcached_conn, sfd, conn_new_cmd,
+	mc = conn_new(memcached_conn, 0, sfd, conn_new_cmd,
                  EV_READ | EV_PERSIST, DATA_BUFFER_SIZE, base);
 	return mc;
 }

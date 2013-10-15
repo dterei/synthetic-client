@@ -2,6 +2,7 @@
 #include "connections.h"
 #include "protocol.h"
 #include "server.h"
+#include "stats.h"
 
 #include <assert.h>
 #include <string.h>
@@ -143,6 +144,11 @@ bool parse_command(conn *c, char *command) {
 	} else {
 		return false;
 	}
+
+	// NOTE: No refcnt needed here as not changing pointer structure.
+	mutex_lock(&c->stats->lock);
+	c->stats->requests++;
+	mutex_unlock(&c->stats->lock);
 
 	return true;
 }

@@ -28,6 +28,7 @@ settings settings_init(void) {
 	// just allocate a big one so we should never need to expand.
 	s.backends.size = 1000;
 	s.backends.hosts = malloc(sizeof(char*) * s.backends.size);
+	s.stats = new_stats();
 	return s;
 }
 

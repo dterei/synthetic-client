@@ -207,7 +207,7 @@ static int server_socket(int port) {
 			return 1;
 		}
 
-		if (!(c = conn_new(client_conn, sfd, conn_listening,
+		if (!(c = conn_new(client_conn, 0, sfd, conn_listening,
 		                   EV_READ | EV_PERSIST,
 		                   1, main_base))) {
 			fprintf(stderr, "failed to create listening connection\n");

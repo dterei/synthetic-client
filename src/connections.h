@@ -4,6 +4,7 @@
 
 #include "fsm.h"
 #include "items.h"
+#include "stats.h"
 
 #include <event.h>
 #include <stdbool.h>
@@ -32,6 +33,7 @@ enum conn_type {
 typedef struct _conn {
 	enum conn_type type;             // type of connection (for casting).
 	struct _conn *next;              // allow link-listing of connections.
+	int client_id;                   // the client id connecting.
 
 	// socket handling.
 	int sfd;                         // underlying socket.
@@ -105,11 +107,14 @@ typedef struct _conn {
  	int          rpcused;            // number of elements used in rpc[].
 	int          rpcdone;            // last+1 element in rpc[] that we've
 												// received response for.
+	
+	client_stats *stats;             // client specific stats.
 } conn;
 
 // new connection management.
 void conn_init(void);
 conn *conn_new(enum conn_type type,
+					const int client_id,
                const int sfd,
                enum conn_states init_state,
                const int event_flags,

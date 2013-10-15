@@ -2,6 +2,8 @@
 #ifndef _SETTINGS_H
 #define _SETTINGS_H
 
+#include "stats.h"
+
 #include <stdbool.h>
 
 #define MAX_SERVER_STRING 300
@@ -18,6 +20,7 @@ typedef struct _settings {
 	int threads;
 	int tcpport;
 	backends backends;
+	statistics *stats;
 } settings;
 
 void usage(void);
