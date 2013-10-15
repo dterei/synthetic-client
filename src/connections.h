@@ -109,6 +109,7 @@ typedef struct _conn {
 												// received response for.
 	
 	client_stats *stats;             // client specific stats.
+	void *mem_blob;                  // some random allocated memory for synthetic testing.
 } conn;
 
 // new connection management.

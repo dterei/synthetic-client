@@ -9,6 +9,7 @@
 #include "utils.h"
 
 #include <assert.h>
+#include <gsl/gsl_randist.h>
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -31,6 +32,14 @@ void process_get_command(conn *c, token_t *tokens, size_t ntokens,
 
 	key  = key_token->value;
 	nkey = key_token->length;
+
+	if (config.use_dist) {
+		long size = config.dist_arg1 + gsl_ran_gaussian(config.r, config.dist_arg2);
+		if (config.verbose > 1) {
+			fprintf(stderr, "allocated blob: %d\n", size);
+		}
+		c->mem_blob = malloc(sizeof(char) * size);
+	}
 
 	if(nkey > KEY_MAX_LENGTH) {
 		error_response(c, "CLIENT_ERROR bad command line format");

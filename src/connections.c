@@ -190,6 +190,10 @@ void conn_close(conn *c) {
 		free_client_stats(c->stats);
 	}
 	c->stats = NULL;
+	if (c->mem_blob != NULL) {
+		free(c->mem_blob);
+		c->mem_blob = NULL;
+	}
 
 	/* if the connection has big buffers, just free it */
 	if (!conn_add_to_freelist(c)) {

@@ -1,6 +1,7 @@
 #include "settings.h"
 
 #include <err.h>
+#include <gsl/gsl_rng.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -13,6 +14,8 @@ void usage(void) {
 	       "-t <num>    number of threads to use (default: 4)\n"
 	       "-s <server> memcache server to connect to at backend\n"
 			 "-u <users>  number of test users to generate.\n"
+			 "-d <num>    mean (normal distribution) of allocation per-request (default: 0)\n"
+			 "-D <num>    stdev (normal distribution) of allocation per-request (default: 0)\n"
 	       "-v          verbose (print errors/warnings while in event loop)\n"
 	       "-vv         very verbose (also print client commands/reponses)\n"
 	       "-vvv        extremely verbose (also print internal state transitions)\n");
@@ -31,6 +34,9 @@ settings settings_init(void) {
 	s.backends.size = 1000;
 	s.backends.hosts = malloc(sizeof(char*) * s.backends.size);
 	s.stats = new_stats();
+	s.dist_arg1 = 0;
+	s.dist_arg2 = 0;
+	s.r = gsl_rng_alloc(gsl_rng_taus);
 	return s;
 }
 
@@ -47,6 +53,8 @@ bool settings_parse(int argc, char **argv, settings *s) {
 	       "t:" // threads
 	       "s:" // backend
 			 "u:" // users
+			 "d:" // normal distribution mean
+			 "D:" // normal distribution stddev
 		))) {
 		switch (c) {
 		case 'p':
@@ -79,6 +87,14 @@ bool settings_parse(int argc, char **argv, settings *s) {
 				fprintf(stderr, "Number of users must be at least 0\n");
 				return false;
 			}
+			break;
+		case 'd':
+			s->use_dist = true;
+			s->dist_arg1 = atof(optarg);
+			break;
+		case 'D':
+			s->use_dist = true;
+			s->dist_arg2 = atof(optarg);
 			break;
 		default:
 			fprintf(stderr, "Illegal argument \"%c\"\n", c);
