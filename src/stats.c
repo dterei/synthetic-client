@@ -1,3 +1,5 @@
+#include "locking.h"
+#include "server.h"
 #include "stats.h"
 
 #include <pthread.h>
@@ -19,7 +21,7 @@ statistics *new_stats(void) {
 client_stats *get_client_stats(statistics *s, int client_id) {
 	int key = client_id % s->map_size;
 	client_stats *cs = s->map[key];
-
+	
 	while (cs != NULL && cs->client_id != client_id) {
 		cs = cs->next;
 	}
@@ -27,6 +29,7 @@ client_stats *get_client_stats(statistics *s, int client_id) {
 	if (cs == NULL) {
 		cs = calloc(sizeof(client_stats), 1);
 		pthread_mutex_init(&cs->lock, NULL);
+		cs->client_id = client_id;
 		cs->refcnt = 2; // 1 for hashmap ref, one for return ref.
 		cs->next = s->map[key];
 		s->map[key] = cs;
@@ -69,38 +72,16 @@ void free_client_stats(client_stats *cs) {
 	free(cs);
 }
 
-// increase the refcnt of an object.
-inline unsigned short refcount_incr(unsigned short *refcount, pthread_mutex_t *mutex) {
-#ifdef HAVE_GCC_ATOMICS
-	return __sync_add_and_fetch(refcount, 1);
-#else
-	unsigned short res;
-	mutex_lock(mutex);
-	(*refcount)++;
-	res = *refcount;
-	mutex_unlock(mutex);
-	return res;
-#endif
-}
+// generate some test client data in stats.
+void stat_test_data(statistics *stats, int amount) {
+	if (config.verbose > 0) {
+		fprintf(stderr, "Generating %d test users\n", amount);
+	}
 
-// decrease the refcnt of an object.
-inline unsigned short refcount_decr(unsigned short *refcount, pthread_mutex_t *mutex) {
-#ifdef HAVE_GCC_ATOMICS
-	return __sync_sub_and_fetch(refcount, 1);
-#else
-	unsigned short res;
-	mutex_lock(mutex);
-	(*refcount)--;
-	res = *refcount;
-	mutex_unlock(mutex);
-	return res;
-#endif
-}
-
-// lock a mutex (spin lock).
-inline int mutex_lock(pthread_mutex_t *mutex)
-{
-    while (pthread_mutex_trylock(mutex));
-    return 0;
+	for (int curr = 0; curr < amount; curr++) {
+		int client_id = rand();
+		client_stats *cs = get_client_stats(stats, client_id);
+		refcount_decr(&cs->refcnt, &cs->lock);
+	}
 }
 

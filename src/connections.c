@@ -2,8 +2,8 @@
 
 #include "connections.h"
 #include "items.h"
+#include "locking.h"
 #include "server.h"
-#include "stats.h"
 
 #include <assert.h>
 #include <event.h>
@@ -166,14 +166,12 @@ conn *conn_new(enum conn_type type,
 // Frees a connection.
 static void conn_free(conn *c) {
 	if (c) {
-		refcount_decr(&c->stats->refcnt, &c->stats->lock);
 		if (c->rbuf) free(c->rbuf);
 		if (c->wbuf) free(c->wbuf);
 		if (c->iov)  free(c->iov);
 		if (c->msglist) free(c->msglist);
 		if (c->ilist) free(c->ilist);
 		if (c->rpc) free(c->rpc);
-
 		free(c);
 	}
 }
@@ -188,13 +186,16 @@ void conn_close(conn *c) {
 		fprintf(stderr, "<%d connection closed.\n", c->sfd);
 	}
 	close(c->sfd);
+	if (refcount_decr(&c->stats->refcnt, &c->stats->lock) == 0) {
+		free_client_stats(c->stats);
+	}
+	c->stats = NULL;
 
 	/* if the connection has big buffers, just free it */
 	if (!conn_add_to_freelist(c)) {
 		conn_free(c);
 	}
 }
-
 
 // Sets a connection's current state in the state machine. Any special
 // processing that needs to happen on certain state transitions can happen

@@ -1,8 +1,8 @@
 #include "commands.h"
 #include "connections.h"
+#include "locking.h"
 #include "protocol.h"
 #include "server.h"
-#include "stats.h"
 
 #include <assert.h>
 #include <string.h>
@@ -113,9 +113,9 @@ bool parse_command(conn *c, char *command) {
 	/* 		(strcmp(tokens[COMMAND_TOKEN].value, "touch") == 0)) { */
 	/* 	process_touch_command(c, tokens, ntokens); */
 
-	/* } else if (ntokens >= 2 && */
-	/* 		(strcmp(tokens[COMMAND_TOKEN].value, "stats") == 0)) { */
-	/* 	process_stat(c, tokens, ntokens); */
+	} else if (ntokens >= 2 &&
+			(strcmp(tokens[COMMAND_TOKEN].value, "stats") == 0)) {
+		process_stat_command(c, tokens, ntokens);
 
 	/* } else if (ntokens >= 2 && ntokens <= 4 && */
 	/* 		(strcmp(tokens[COMMAND_TOKEN].value, "flush_all") == 0)) { */

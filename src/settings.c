@@ -12,6 +12,7 @@ void usage(void) {
 	       "-p <num>    TCP port number to listen on (default: 11210)\n"
 	       "-t <num>    number of threads to use (default: 4)\n"
 	       "-s <server> memcache server to connect to at backend\n"
+			 "-u <users>  number of test users to generate.\n"
 	       "-v          verbose (print errors/warnings while in event loop)\n"
 	       "-vv         very verbose (also print client commands/reponses)\n"
 	       "-vvv        extremely verbose (also print internal state transitions)\n");
@@ -24,6 +25,7 @@ settings settings_init(void) {
 	s.verbose = 0;
 	s.threads = 1;
 	s.tcpport = 11210;
+	s.users = 0;
 	s.backends.len = 0;
 	// just allocate a big one so we should never need to expand.
 	s.backends.size = 1000;
@@ -43,7 +45,8 @@ bool settings_parse(int argc, char **argv, settings *s) {
 	       "h"  // help, licence info
 	       "v"  // verbose
 	       "t:" // threads
-	       "s:"  /* backend */
+	       "s:" // backend
+			 "u:" // users
 		))) {
 		switch (c) {
 		case 'p':
@@ -69,6 +72,13 @@ bool settings_parse(int argc, char **argv, settings *s) {
 			str[len - 1] = '\0';
 			s->backends.hosts[s->backends.len] = str;
 			s->backends.len++;
+			break;
+		case 'u':
+			s->users = atoi(optarg);
+			if (s->users < 0) {
+				fprintf(stderr, "Number of users must be at least 0\n");
+				return false;
+			}
 			break;
 		default:
 			fprintf(stderr, "Illegal argument \"%c\"\n", c);

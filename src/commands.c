@@ -2,6 +2,7 @@
 
 #include "commands.h"
 #include "connections.h"
+#include "locking.h"
 #include "protocol.h"
 #include "server.h"
 #include "threads.h"
@@ -141,5 +142,19 @@ void process_update_command(conn *c, token_t *tokens,
 	// setup value to be read
 	c->sbytes = vlen + 2; // for \r\n consumption.
 	conn_set_state(c, conn_read_value);
+}
+
+// process a memcached stat command.
+void process_stat_command(conn *c, token_t *tokens, const size_t ntokens) {
+	mutex_lock(&c->stats->lock);
+
+	// just for debugging right now
+	fprintf(stderr, "STAT client_id %d\n", c->stats->client_id);
+	fprintf(stderr, "STAT total_connections %d\n", c->stats->total_connections);
+	fprintf(stderr, "STAT live_connections %d\n", c->stats->live_connections);
+	fprintf(stderr, "STAT requests %d\n", c->stats->requests);
+
+	mutex_unlock(&c->stats->lock);
+	conn_set_state(c, conn_new_cmd);
 }
 

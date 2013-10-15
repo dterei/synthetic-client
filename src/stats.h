@@ -27,10 +27,6 @@ statistics *new_stats(void);
 client_stats *get_client_stats(statistics *s, int client_id);
 void rm_client_stats(statistics *s, int client_id);
 void free_client_stats(client_stats *cs);
-
-int mutex_lock(pthread_mutex_t *mutex);
-#define mutex_unlock(x) pthread_mutex_unlock(x)
-unsigned short refcount_incr(unsigned short *refcount, pthread_mutex_t *mutex);
-unsigned short refcount_decr(unsigned short *refcount, pthread_mutex_t *mutex);
+void stat_test_data(statistics *stats, int amount);
 
 #endif

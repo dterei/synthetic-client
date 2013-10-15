@@ -103,6 +103,11 @@ int main (int argc, char **argv) {
 	// start up worker threads.
 	thread_init(config.threads, main_base);
 
+	// generate some user test data if asked for.
+	if (config.users > 0) {
+		stat_test_data(config.stats, config.users);
+	}
+
 	// create the listening socket, bind it, and init.
 	errno = 0;
 	if (server_socket(config.tcpport)) {

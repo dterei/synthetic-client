@@ -14,6 +14,7 @@ void process_get_command(conn *c, token_t *tokens, size_t ntokens,
 void finish_get_command(conn *c);
 void process_update_command(conn *c, token_t *tokens, const size_t ntokens,
                             int comm, bool handle_cas);
+void process_stat_command(conn *c, token_t *tokens, const size_t ntokens);
 
 #endif
 
