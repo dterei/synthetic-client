@@ -1,6 +1,8 @@
-# Synthetic Memcached
+# Synthetic Memcached Proxy
 
-Memcached fake, benchmarking server.
+Memcached fake, benchmarking proxy. This is designed to be a somewhat
+realistic synthetic middleware program in a distributed system. It
+functions as a kind of memcached proxy.
 
 This implements the architecture of memcached, so a fairly
 high-performance network service for request/response style workloads.
@@ -14,10 +16,14 @@ Code is largely taken from memcached itself but cleaned up a lot.
 
 ## Memcached protocl support
 
+This service connects to a collection of memcached backends.
+
 Implemented commands:
- * GET -- just respond with a fixed value to every single key.
+ * GET -- just respond with a fixed value to every single key. Will
+          send an RPC to every memcached backend and only respond to
+          the get once all RPC's are completed.
  * SET -- parses command and returns ok but doesn't actually store
-          data.
+          data. (no backend involvement).
 
 Other commands could be added easily but aren't needed for what I
 want.
