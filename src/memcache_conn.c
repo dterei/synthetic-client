@@ -32,8 +32,18 @@ memcached_t* memcache_connect(struct event_base *base, char *host) {
 		fprintf(stderr, "Connecting to host %s...", host);
 	}
 
+	int slen = strlen(host);
+	char *port = memchr(host, ':', slen);
+	if (port == NULL || (port - host) == slen) {
+		port = memcache_port;
+	} else {
+		// XXX: Hack, we destroy the string...
+		*port = '\0';
+		port++;
+	}
+
 	// dns lookup
-	error = getaddrinfo(host, memcache_port, &hints, &ai);
+	error = getaddrinfo(host, port, &hints, &ai);
 	if (error != 0) {
 		if (error != EAI_SYSTEM) {
 			fprintf(stderr, "getaddrinfo(): %s\n", gai_strerror(error));
