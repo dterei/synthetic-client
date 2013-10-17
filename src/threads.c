@@ -5,6 +5,7 @@
 #include "server.h"
 
 #include <event.h>
+#include <gsl/gsl_rng.h>
 #include <netinet/tcp.h>
 #include <pthread.h>
 #include <stdio.h>
@@ -175,6 +176,9 @@ static void setup_thread(worker_thread_t *t) {
 	if (config.verbose > 0) {
 		fprintf(stderr, "connecting to memcached backends...\n");
 	}
+
+	// setup prng
+	t->r = gsl_rng_alloc(gsl_rng_taus);
 	
 	// setup memcache connections
 	t->memcache_used = 0;

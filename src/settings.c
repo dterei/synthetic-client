@@ -1,7 +1,6 @@
 #include "settings.h"
 
 #include <err.h>
-#include <gsl/gsl_rng.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -16,6 +15,9 @@ void usage(void) {
 			 "-u <users>  number of test users to generate.\n"
 			 "-d <num>    mean (normal distribution) of allocation per-request (default: 0)\n"
 			 "-D <num>    stdev (normal distribution) of allocation per-request (default: 0)\n"
+			 "-r <num>    mean (normal distribution) of response-time (default: 0)\n"
+			 "-R <num>    stdev (normal distribution) of response-time (default: 0)\n"
+			 "-C <num>    response-time delay cutoff (below this, no delay, default: 0)\n"
 	       "-v          verbose (print errors/warnings while in event loop)\n"
 	       "-vv         very verbose (also print client commands/reponses)\n"
 	       "-vvv        extremely verbose (also print internal state transitions)\n");
@@ -27,7 +29,7 @@ settings settings_init(void) {
 	settings s;
 	s.verbose = 0;
 	s.threads = 1;
-	s.tcpport = 11210;
+	s.tcpport = 11211;
 	s.users = 0;
 	s.backends.len = 0;
 	// just allocate a big one so we should never need to expand.
@@ -36,7 +38,11 @@ settings settings_init(void) {
 	s.stats = new_stats();
 	s.dist_arg1 = 0;
 	s.dist_arg2 = 0;
-	s.r = gsl_rng_alloc(gsl_rng_taus);
+	s.rtt_mean = 0;
+	s.rtt_stddev = 0;
+	s.use_dist = false;
+	s.rtt_delay = true;
+	s.rtt_cutoff = 0;
 	return s;
 }
 
@@ -55,6 +61,9 @@ bool settings_parse(int argc, char **argv, settings *s) {
 			 "u:" // users
 			 "d:" // normal distribution mean
 			 "D:" // normal distribution stddev
+			 "r:" // normal distribution mean
+			 "R:" // normal distribution stddev
+			 "C:" // normal distribution stddev
 		))) {
 		switch (c) {
 		case 'p':
@@ -96,15 +105,26 @@ bool settings_parse(int argc, char **argv, settings *s) {
 			s->use_dist = true;
 			s->dist_arg2 = atof(optarg);
 			break;
+		case 'r':
+			s->rtt_delay = true;
+			s->rtt_mean = atof(optarg);
+			break;
+		case 'R':
+			s->rtt_delay = true;
+			s->rtt_stddev = atof(optarg);
+			break;
+		case 'C':
+			s->rtt_cutoff = atof(optarg);
+			break;
 		default:
 			fprintf(stderr, "Illegal argument \"%c\"\n", c);
 			return false;
 		}
 	}
 
-	if (s->backends.len <= 0) {
-		errx(1, "Must include at least one memcached RPC backend!\n");
-	}
+	/* if (s->backends.len <= 0) { */
+	/* 	errx(1, "Must include at least one memcached RPC backend!\n"); */
+	/* } */
 	return true;
 }
 

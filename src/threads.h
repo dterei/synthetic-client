@@ -11,6 +11,7 @@
 #include "memcache_conn.h"
 
 #include <event.h>
+#include <gsl/gsl_rng.h>
 
 struct _conn_queue_t;
 
@@ -25,6 +26,7 @@ typedef struct _worker_thread_t {
     struct _conn_queue_t *new_conn_queue; /* queue of new connections to handle */
 	 memcached_t **memcache;               /* memcached connections */
 	 int memcache_used;                    /* # of memcached connections */
+	 gsl_rng *r;                           /* prng */
 } worker_thread_t;
 
 // the main, intial thread that we use for listening for connections and
