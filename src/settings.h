@@ -22,11 +22,11 @@ typedef struct _settings {
 	int users;
 	backends backends;
 	statistics *stats;
-	double dist_arg1;  // normal distribution mean
-	double dist_arg2;  // normal distribution stddev
-	bool use_dist;
-	double rtt_mean;   // normal distribution mean
-	double rtt_stddev; // normal distribution stddev
+	double alloc_mean;
+	double alloc_stddev;
+	bool alloc;
+	double rtt_mean;
+	double rtt_stddev;
 	double rtt_cutoff; // below this, don't delay
 	bool rtt_delay;
 } settings;

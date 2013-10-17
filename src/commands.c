@@ -142,6 +142,29 @@ void process_get_command(conn *c, token_t *tokens, size_t ntokens,
 
 	assert(c != NULL);
 
+	if (config.alloc && c->mem_blob == NULL) {
+		long size = config.alloc_mean + gsl_ran_gaussian(c->thread->r, config.alloc_stddev);
+		size = size <= 0 ? 10 : size;
+		if (config.verbose > 0) {
+			fprintf(stderr, "allocated blob: %ld\n", size);
+		}
+
+		c->mem_blob = malloc(sizeof(char) * size);
+		c->mem_free_delay = 0;
+
+		if (config.rtt_delay) {
+			double r = config.rtt_mean + gsl_ran_gaussian(c->thread->r, config.rtt_stddev);
+			if (r >= config.rtt_cutoff) {
+				int wait = r / 100;
+				if (config.verbose > 0) {
+					fprintf(stderr, "delay: %d\n", wait);
+				}
+				c->mem_free_delay = wait;
+				conn_set_state(c, conn_mwrite);
+			}
+		}
+	}
+
 	// process the whole command line, (only part of it may be tokenized right now)
 	do {
 		// process all tokenized keys at this stage.
@@ -216,22 +239,7 @@ void process_get_command(conn *c, token_t *tokens, size_t ntokens,
 	if (key_token->value != NULL || !conn_add_iov(c, "END\r\n", 5) != 0) {
 		error_response(c, "SERVER_ERROR out of memory writing get response");
 	} else {
-		if (config.rtt_delay) {
-			double r = config.rtt_mean + gsl_ran_gaussian(c->thread->r, config.rtt_stddev);
-			if (r >= config.rtt_cutoff) {
-				if (config.verbose > 0) {
-					fprintf(stderr, "delay: %f\n", r);
-				}
-				conn_set_state(c, conn_timeout);
-				c->after_timeout = conn_mwrite;
-				c->timeout = r;
-				c->msgcurr = 0;
-			} else {
-				conn_set_state(c, conn_mwrite);
-			}
-		} else {
-			conn_set_state(c, conn_mwrite);
-		}
+		conn_set_state(c, conn_mwrite);
 	}
 }
 

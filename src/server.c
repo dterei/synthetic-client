@@ -293,10 +293,13 @@ static void drive_machine(conn *c) {
 			break;
 
 		case conn_new_cmd:
-			if (c->mem_blob != NULL) {
+			if (c->mem_blob != NULL && c->mem_free_delay == 0) {
 				free(c->mem_blob);
 				c->mem_blob = NULL;
+			} else if (c->mem_free_delay > 0) {
+				c->mem_free_delay--;
 			}
+
 			// Only process nreqs at a time to avoid starving other connections
 			--nreqs;
 			if (nreqs >= 0) {

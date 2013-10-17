@@ -36,12 +36,12 @@ settings settings_init(void) {
 	s.backends.size = 1000;
 	s.backends.hosts = malloc(sizeof(char*) * s.backends.size);
 	s.stats = new_stats();
-	s.dist_arg1 = 0;
-	s.dist_arg2 = 0;
+	s.alloc_mean = 0;
+	s.alloc_stddev = 0;
+	s.alloc = false;
 	s.rtt_mean = 0;
 	s.rtt_stddev = 0;
-	s.use_dist = false;
-	s.rtt_delay = true;
+	s.rtt_delay = false;
 	s.rtt_cutoff = 0;
 	return s;
 }
@@ -98,12 +98,12 @@ bool settings_parse(int argc, char **argv, settings *s) {
 			}
 			break;
 		case 'd':
-			s->use_dist = true;
-			s->dist_arg1 = atof(optarg);
+			s->alloc = true;
+			s->alloc_mean = atof(optarg);
 			break;
 		case 'D':
-			s->use_dist = true;
-			s->dist_arg2 = atof(optarg);
+			s->alloc = true;
+			s->alloc_stddev = atof(optarg);
 			break;
 		case 'r':
 			s->rtt_delay = true;
