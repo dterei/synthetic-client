@@ -297,6 +297,9 @@ static void drive_machine(conn *c) {
 				free(c->mem_blob);
 				c->mem_blob = NULL;
 			} else if (c->mem_free_delay > 0) {
+				if (config.verbose > 1) {
+					fprintf(stderr, "wait left %d\n", c->mem_free_delay);
+				}
 				c->mem_free_delay--;
 			}
 
