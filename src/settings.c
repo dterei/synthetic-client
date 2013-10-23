@@ -11,6 +11,7 @@ void usage(void) {
 	printf("-h          print this help and exit\n"
 	       "-p <num>    TCP port number to listen on (default: 11210)\n"
 	       "-t <num>    number of threads to use (default: 4)\n"
+			 "-T          set distinct cpu affinity for threads, round-robin\n"
 	       "-s <server> memcache server to connect to at backend\n"
 			 "-u <users>  number of test users to generate.\n"
 			 "-d <num>    mean (normal distribution) of allocation per-request (default: 0)\n"
@@ -30,6 +31,7 @@ settings settings_init(void) {
 	s.verbose = 0;
 	s.threads = 1;
 	s.tcpport = 11211;
+	s.thread_affinity = false;
 	s.users = 0;
 	s.backends.len = 0;
 	// just allocate a big one so we should never need to expand.
@@ -57,6 +59,7 @@ bool settings_parse(int argc, char **argv, settings *s) {
 	       "h"  // help, licence info
 	       "v"  // verbose
 	       "t:" // threads
+			 "T"  // cpu-affinity
 	       "s:" // backend
 			 "u:" // users
 			 "d:" // normal distribution mean
@@ -81,6 +84,9 @@ bool settings_parse(int argc, char **argv, settings *s) {
 				fprintf(stderr, "Number of threads must be greater than 0\n");
 				return false;
 			}
+			break;
+		case 'T':
+			s->thread_affinity = true;
 			break;
 		case 's':
 			len = strnlen(optarg, MAX_SERVER_STRING) + 1;

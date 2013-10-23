@@ -19,6 +19,7 @@ typedef struct _settings {
 	int verbose;
 	int threads;
 	int tcpport;
+	bool thread_affinity;
 	int users;
 	backends backends;
 	statistics *stats;
