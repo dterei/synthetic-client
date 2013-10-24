@@ -29,6 +29,10 @@
 #endif
 #include <limits.h>
 
+#define GC_THREADS
+#include <gc.h>
+#define GC_CALLOC(m,n) GC_MALLOC((m)*(n))
+
 // prototypes.
 static bool conn_add_to_freelist(conn *c);
 static void conn_free(conn *c);
@@ -43,7 +47,7 @@ static pthread_mutex_t conn_lock = PTHREAD_MUTEX_INITIALIZER;
 void conn_init(void) {
     freetotal = 200;
     freecurr = 0;
-    if ((freeconns = calloc(freetotal, sizeof(conn *))) == NULL) {
+    if ((freeconns = GC_CALLOC(freetotal, sizeof(conn *))) == NULL) {
         fprintf(stderr, "Failed to allocate connection structures\n");
     }
     return;
@@ -52,11 +56,11 @@ void conn_init(void) {
 // Returns a connection from the freelist, if any.
 static conn *conn_from_freelist() {
 	conn *c = NULL;
-	pthread_mutex_lock(&conn_lock);
-	if (freecurr > 0) {
-		c = freeconns[--freecurr];
-	}
-	pthread_mutex_unlock(&conn_lock);
+	/* pthread_mutex_lock(&conn_lock); */
+	/* if (freecurr > 0) { */
+	/* 	c = freeconns[--freecurr]; */
+	/* } */
+	/* pthread_mutex_unlock(&conn_lock); */
 	return c;
 }
 
@@ -70,7 +74,7 @@ static bool conn_add_to_freelist(conn *c) {
     } else {
         /* try to enlarge free connections array */
         size_t newsize = freetotal * 2;
-        conn **new_freeconns = realloc(freeconns, sizeof(conn *) * newsize);
+        conn **new_freeconns = GC_REALLOC(freeconns, sizeof(conn *) * newsize);
         if (new_freeconns) {
             freetotal = newsize;
             freeconns = new_freeconns;
@@ -93,27 +97,27 @@ conn *conn_new(enum conn_type type,
 	conn *c = conn_from_freelist();
 
 	if (NULL == c) {
-		if (!(c = (conn *)calloc(1, sizeof(conn)))) {
+		if (!(c = (conn *)GC_CALLOC(1, sizeof(conn)))) {
 			fprintf(stderr, "calloc()\n");
 			return NULL;
 		}
 
 		c->rsize = read_buffer_size;
 		c->wsize = DATA_BUFFER_SIZE;
-		c->rbuf = (char *)malloc((size_t)c->rsize);
-		c->wbuf = (char *)malloc((size_t)c->wsize);
+		c->rbuf = (char *)GC_MALLOC((size_t)c->rsize);
+		c->wbuf = (char *)GC_MALLOC((size_t)c->wsize);
 
 		c->iovsize = IOV_LIST_INITIAL;
-		c->iov = (struct iovec *)malloc(sizeof(struct iovec) * c->iovsize);
+		c->iov = (struct iovec *)GC_MALLOC(sizeof(struct iovec) * c->iovsize);
 
 		c->msgsize = MSG_LIST_INITIAL;
-		c->msglist = (struct msghdr *)malloc(sizeof(struct msghdr) * c->msgsize);
+		c->msglist = (struct msghdr *)GC_MALLOC(sizeof(struct msghdr) * c->msgsize);
 
 		c->isize = ITEM_LIST_INITIAL;
-		c->ilist = (item **)malloc(sizeof(item *) * c->isize);
+		c->ilist = (item **)GC_MALLOC(sizeof(item *) * c->isize);
 
 		c->rpcsize = MEMCACHE_RPC_QUEUE;
-		c->rpc = (conn **)malloc(sizeof(conn *) * c->rpcsize);
+		c->rpc = (conn **)GC_MALLOC(sizeof(conn *) * c->rpcsize);
 
 		if (c->rbuf == NULL || c->wbuf == NULL ||  c->iov == NULL
 		    || c->msglist == NULL || c->ilist == NULL) {
@@ -165,15 +169,15 @@ conn *conn_new(enum conn_type type,
 
 // Frees a connection.
 static void conn_free(conn *c) {
-	if (c) {
-		if (c->rbuf) free(c->rbuf);
-		if (c->wbuf) free(c->wbuf);
-		if (c->iov)  free(c->iov);
-		if (c->msglist) free(c->msglist);
-		if (c->ilist) free(c->ilist);
-		if (c->rpc) free(c->rpc);
-		free(c);
-	}
+	/* if (c) { */
+	/* 	if (c->rbuf) free(c->rbuf); */
+	/* 	if (c->wbuf) free(c->wbuf); */
+	/* 	if (c->iov)  free(c->iov); */
+	/* 	if (c->msglist) free(c->msglist); */
+	/* 	if (c->ilist) free(c->ilist); */
+	/* 	if (c->rpc) free(c->rpc); */
+	/* 	free(c); */
+	/* } */
 }
 
 // Close a connection.
@@ -191,7 +195,7 @@ void conn_close(conn *c) {
 	}
 	c->stats = NULL;
 	if (c->mem_blob != NULL) {
-		free(c->mem_blob);
+		/* free(c->mem_blob); */
 		c->mem_blob = NULL;
 	}
 
@@ -266,7 +270,7 @@ int conn_add_msghdr(conn *c) {
 	assert(c != NULL);
 
 	if (c->msgsize == c->msgused) {
-		msg = realloc(c->msglist, c->msgsize * 2 * sizeof(struct msghdr));
+		msg = GC_REALLOC(c->msglist, c->msgsize * 2 * sizeof(struct msghdr));
 		if (!msg) return 0;
 		c->msglist = msg;
 		c->msgsize *= 2;
@@ -292,7 +296,7 @@ static bool conn_ensure_iov_space(conn *c) {
 	if (c->iovused >= c->iovsize) {
 		int i, iovnum;
 		struct iovec *new_iov =
-			(struct iovec *)realloc(c->iov, (c->iovsize * 2) * sizeof(struct iovec));
+			(struct iovec *)GC_REALLOC(c->iov, (c->iovsize * 2) * sizeof(struct iovec));
 		if (!new_iov) return false;
 		c->iov = new_iov;
 		c->iovsize *= 2;
@@ -358,7 +362,7 @@ bool conn_add_iov(conn *c, const void *buf, int len) {
 
 // grow the item list of a connection.
 bool conn_expand_items(conn *c) {
-	item **new_list = realloc(c->ilist, sizeof(item *) * c->isize * 2);
+	item **new_list = GC_REALLOC(c->ilist, sizeof(item *) * c->isize * 2);
 	if (new_list) {
 		c->isize *= 2;
 		c->ilist = new_list;
@@ -376,7 +380,7 @@ bool conn_ensure_rpc_space(conn *mc) {
 	if (mc->rpcused >= mc->rpcsize) {
 		if (mc->rpcdone == 0) {
 			// expand queue as out of slots.
-			rpc = realloc(mc->rpc, sizeof(conn **) * mc->rpcsize * 2);
+			rpc = GC_REALLOC(mc->rpc, sizeof(conn **) * mc->rpcsize * 2);
 			if (!rpc) return false;
 			mc->rpc = rpc;
 			mc->rpcsize *= 2;

@@ -13,6 +13,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#define GC_THREADS
+#include <gc.h>
+#define GC_CALLOC(m,n) GC_MALLOC((m)*(n))
+
 static char *default_key = "skeleton";
 
 /* // process a memcached get(s) command. (we don't support CAS). This function */
@@ -149,7 +153,7 @@ void process_get_command(conn *c, token_t *tokens, size_t ntokens,
 			fprintf(stderr, "allocated blob: %ld\n", size);
 		}
 
-		c->mem_blob = malloc(sizeof(char) * size);
+		c->mem_blob = GC_MALLOC(sizeof(char) * size);
 		c->mem_free_delay = 0;
 
 		if (config.rtt_delay) {

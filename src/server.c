@@ -308,7 +308,7 @@ static void drive_machine(conn *c) {
 
 		case conn_new_cmd:
 			if (c->mem_blob != NULL && c->mem_free_delay == 0) {
-				free(c->mem_blob);
+				/* free(c->mem_blob); */
 				c->mem_blob = NULL;
 			} else if (c->mem_free_delay > 0) {
 				if (config.verbose > 1) {
@@ -559,7 +559,7 @@ static read_result read_network(conn *c) {
 				return ret;
 			}
 			++num_allocs;
-			char *new_rbuf = realloc(c->rbuf, c->rsize * 2);
+			char *new_rbuf = GC_REALLOC(c->rbuf, c->rsize * 2);
 			if (!new_rbuf) {
 				if (config.verbose > 0) {
 					fprintf(stderr, "Couldn't realloc input buffer\n");

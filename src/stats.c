@@ -5,14 +5,18 @@
 #include <pthread.h>
 #include <stdlib.h>
 
+#define GC_THREADS
+#include <gc.h>
+#define GC_CALLOC(m,n) GC_MALLOC((m)*(n))
+
 // create a new statistics value.
 statistics *new_stats(void) {
-	statistics *s = malloc(sizeof(statistics));
+	statistics *s = GC_MALLOC(sizeof(statistics));
 	pthread_mutex_init(&s->lock, NULL);
 	s->refcnt = 1;
 	s->clients = 0;
 	s->map_size = STATS_HASH_MAP_SIZE;
-	s->map = calloc(sizeof(client_stats*), STATS_HASH_MAP_SIZE);
+	s->map = GC_CALLOC(sizeof(client_stats*), STATS_HASH_MAP_SIZE);
 	return s;
 }
 
@@ -27,7 +31,7 @@ client_stats *get_client_stats(statistics *s, int client_id) {
 	}
 
 	if (cs == NULL) {
-		cs = calloc(sizeof(client_stats), 1);
+		cs = GC_CALLOC(sizeof(client_stats), 1);
 		pthread_mutex_init(&cs->lock, NULL);
 		cs->client_id = client_id;
 		cs->refcnt = 2; // 1 for hashmap ref, one for return ref.
@@ -69,7 +73,7 @@ void rm_client_stats(statistics *s, int client_id) {
 // free a client stats structure.
 void free_client_stats(client_stats *cs) {
 	pthread_mutex_destroy(&cs->lock);
-	free(cs);
+	/* free(cs); */
 }
 
 // generate some test client data in stats.
