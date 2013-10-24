@@ -36,6 +36,10 @@
 #include <sysexits.h>
 #include <unistd.h>
 
+#define GC_THREADS
+#include <gc.h>
+#define GC_CALLOC(m,n) GC_MALLOC((m)*(n))
+
 #define REQ_PER_EVENT 20
 
 // possible results reading from network.
@@ -87,6 +91,16 @@ int main (int argc, char **argv) {
 		perror("failed to ignore SIGPIPE; sigaction");
 		exit(EX_OSERR);
 	}
+
+	// init GC
+	GC_INIT();
+	fprintf(stderr, "Parallel GC: %d\n", GC_get_parallel());
+	fprintf(stderr, "Minor freq: %d\n", GC_get_full_freq());
+	fprintf(stderr, "Free space divider: %ld\n", GC_get_free_space_divisor());
+	fprintf(stderr, "Pause time bound: %ldms\n", GC_get_time_limit());
+	fprintf(stderr, "Heap size: %ldkb\n", GC_get_heap_size() / 1024);
+	fprintf(stderr, "Free size: %ldkb\n", GC_get_free_bytes() / 1024);
+	GC_enable_incremental();
 	
 	// parse settings.
 	config = settings_init();

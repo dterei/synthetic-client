@@ -1,11 +1,17 @@
 CC=cc
-CFLAGS=-O2 -D_GNU_SOURCE -std=c99
-LDFLAGS=-levent -pthread -lgsl -lgslcblas
+
+BDWGC_VERSION=7.3
+BDWGC_LOC=${HOME}/Software/bdwgc-${BDWGC_VERSION}
+
+CFLAGS=-O2 -D_GNU_SOURCE -std=c99 -I/usr/local/include -I${BDWGC_LOC}/include
+LDFLAGS=-levent -pthread -lgsl -lgslcblas -lgc -L/usr/local/lib -L${BDWGC_LOC}/lib
 
 EXECUTABLE=server
 SOURCE_FILES=commands.c connections.c items.c protocol.c server.c settings.c threads.c utils.c memcache_conn.c stats.c locking.c
 SOURCES=$(patsubst %,src/%,$(SOURCE_FILES))
 OBJECTS=$(patsubst %.c,build/%.o,$(SOURCE_FILES))
+
+V=0
 
 all: $(SOURCES) $(EXECUTABLE)
 
@@ -24,4 +30,8 @@ $(EXECUTABLE): $(OBJECTS)
 
 build/%.o: src/%.c src/%.h
 	$(CC) $(CFLAGS) -c $< -o $@
+
+.PHONY: run
+run:
+	foreman start -e prod.env
 

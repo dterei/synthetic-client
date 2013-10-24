@@ -14,6 +14,10 @@
 #include <string.h>
 #include <unistd.h>
 
+#define GC_THREADS
+#include <gc.h>
+#define GC_CALLOC(m,n) GC_MALLOC((m)*(n))
+
 // prototypes
 static void setup_thread(worker_thread_t *t);
 static void create_worker(void *(*func)(void *), void *arg);
@@ -204,34 +208,34 @@ static void create_worker(void *(*func)(void *), void *arg) {
 	pthread_attr_t attr;
 	pthread_attr_init(&attr);
 
-	if (config.thread_affinity) {
-		static int current_cpu = -1;
-		static int max_cpus = 8 * sizeof(cpu_set_t);
-		cpu_set_t m;
-		int i = 0;
+	/* if (config.thread_affinity) { */
+	/* 	static int current_cpu = -1; */
+	/* 	static int max_cpus = 8 * sizeof(cpu_set_t); */
+	/* 	cpu_set_t m; */
+	/* 	int i = 0; */
 
-		CPU_ZERO(&m);
-		sched_getaffinity(0, sizeof(cpu_set_t), &m);
+	/* 	CPU_ZERO(&m); */
+	/* 	sched_getaffinity(0, sizeof(cpu_set_t), &m); */
 
-		for (i = 0; i < max_cpus; i++) {
-			int c = (current_cpu + i + 1) % max_cpus;
-			if (CPU_ISSET(c, &m)) {
-				CPU_ZERO(&m);
-				CPU_SET(c, &m);
-				if ((ret = pthread_attr_setaffinity_np(&attr,
-						sizeof(cpu_set_t), &m)) != 0) {
-					fprintf(stderr, "Can't set thread affinity: %s\n",
-					strerror(ret));
-					exit(1);
-				}
-				if (config.verbose > 0) {
-					fprintf(stderr, "Created thread with affinity = %d\n", c);
-				}
-				current_cpu = c;
-				break;
-			}
-		}
-	}
+	/* 	for (i = 0; i < max_cpus; i++) { */
+	/* 		int c = (current_cpu + i + 1) % max_cpus; */
+	/* 		if (CPU_ISSET(c, &m)) { */
+	/* 			CPU_ZERO(&m); */
+	/* 			CPU_SET(c, &m); */
+	/* 			if ((ret = pthread_attr_setaffinity_np(&attr, */
+	/* 					sizeof(cpu_set_t), &m)) != 0) { */
+	/* 				fprintf(stderr, "Can't set thread affinity: %s\n", */
+	/* 				strerror(ret)); */
+	/* 				exit(1); */
+	/* 			} */
+	/* 			if (config.verbose > 0) { */
+	/* 				fprintf(stderr, "Created thread with affinity = %d\n", c); */
+	/* 			} */
+	/* 			current_cpu = c; */
+	/* 			break; */
+	/* 		} */
+	/* 	} */
+	/* } */
 
 	if ((ret = pthread_create(&thread, &attr, func, arg)) != 0) {
 		fprintf(stderr, "Can't create thread: %s\n", strerror(ret));
