@@ -43,14 +43,18 @@ static int freetotal;
 static int freecurr;
 static pthread_mutex_t conn_lock = PTHREAD_MUTEX_INITIALIZER;
 
+// live connections list for GC to trace.
+static conn *liveconns;
+
 // Initialize our connection system (i.e., free list).
 void conn_init(void) {
-    freetotal = 200;
-    freecurr = 0;
-    if ((freeconns = GC_CALLOC(freetotal, sizeof(conn *))) == NULL) {
-        fprintf(stderr, "Failed to allocate connection structures\n");
-    }
-    return;
+	liveconns = NULL;
+	freetotal = 200;
+	freecurr = 0;
+	if ((freeconns = GC_CALLOC(freetotal, sizeof(conn *))) == NULL) {
+		fprintf(stderr, "Failed to allocate connection structures\n");
+	}
+	return;
 }
 
 // Returns a connection from the freelist, if any.
@@ -104,17 +108,17 @@ conn *conn_new(enum conn_type type,
 
 		c->rsize = read_buffer_size;
 		c->wsize = DATA_BUFFER_SIZE;
-		c->rbuf = (char *)GC_MALLOC((size_t)c->rsize);
-		c->wbuf = (char *)GC_MALLOC((size_t)c->wsize);
+		c->rbuf = (char *)GC_MALLOC_ATOMIC((size_t)c->rsize);
+		c->wbuf = (char *)GC_MALLOC_ATOMIC((size_t)c->wsize);
 
 		c->iovsize = IOV_LIST_INITIAL;
-		c->iov = (struct iovec *)GC_MALLOC(sizeof(struct iovec) * c->iovsize);
+		c->iov = (struct iovec *)GC_MALLOC_ATOMIC(sizeof(struct iovec) * c->iovsize);
 
 		c->msgsize = MSG_LIST_INITIAL;
-		c->msglist = (struct msghdr *)GC_MALLOC(sizeof(struct msghdr) * c->msgsize);
+		c->msglist = (struct msghdr *)GC_MALLOC_ATOMIC(sizeof(struct msghdr) * c->msgsize);
 
 		c->isize = ITEM_LIST_INITIAL;
-		c->ilist = (item **)GC_MALLOC(sizeof(item *) * c->isize);
+		c->ilist = (item **)GC_MALLOC_ATOMIC(sizeof(item *) * c->isize);
 
 		c->rpcsize = MEMCACHE_RPC_QUEUE;
 		c->rpc = (conn **)GC_MALLOC(sizeof(conn *) * c->rpcsize);
@@ -126,6 +130,17 @@ conn *conn_new(enum conn_type type,
 			return NULL;
 		}
 	}
+
+	/* void conn_finalizer(void *obj, void *arg) { */
+	/* 	fprintf(stderr, "Connection free'd! %p\n", obj); */
+	/* } */
+	/* GC_REGISTER_FINALIZER(c, conn_finalizer, NULL, NULL, NULL); */
+	pthread_mutex_lock(&conn_lock);
+	c->prev = NULL;
+	c->next = liveconns;
+	if (liveconns != NULL) liveconns->prev = c;
+	liveconns = c;
+	pthread_mutex_unlock(&conn_lock);
 
 	c->client_id = client_id;
 	c->type = type;
@@ -169,6 +184,15 @@ conn *conn_new(enum conn_type type,
 
 // Frees a connection.
 static void conn_free(conn *c) {
+	conn *prev = c->prev;
+	conn *next = c->next;
+
+	if (prev != NULL) prev->next = next;
+	if (next != NULL) next->prev = prev;
+	c->next = NULL;
+	c->prev = NULL;
+	if (liveconns == c) liveconns = NULL;
+
 	/* if (c) { */
 	/* 	if (c->rbuf) free(c->rbuf); */
 	/* 	if (c->wbuf) free(c->wbuf); */

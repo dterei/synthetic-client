@@ -33,5 +33,5 @@ build/%.o: src/%.c src/%.h
 
 .PHONY: run
 run:
-	foreman start -e prod.env
+	LD_PRELOAD=${BDWGC_LOC}/lib/libgc.so foreman start -e prod.env
 

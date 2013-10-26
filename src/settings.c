@@ -41,7 +41,7 @@ settings settings_init(void) {
 	// just allocate a big one so we should never need to expand.
 	s.backends.size = 1000;
 	s.backends.hosts = GC_MALLOC(sizeof(char*) * s.backends.size);
-	s.stats = new_stats();
+	s.stats = NULL;
 	s.alloc_mean = 0;
 	s.alloc_stddev = 0;
 	s.alloc = false;

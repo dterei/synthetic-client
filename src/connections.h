@@ -33,6 +33,7 @@ enum conn_type {
 typedef struct _conn {
 	enum conn_type type;             // type of connection (for casting).
 	struct _conn *next;              // allow link-listing of connections.
+	struct _conn *prev;
 	int client_id;                   // the client id connecting.
 
 	// socket handling.

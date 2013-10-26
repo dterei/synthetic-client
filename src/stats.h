@@ -1,7 +1,7 @@
 #ifndef _STATS_H
 #define _STATS_H
 
-#define STATS_HASH_MAP_SIZE 1000000
+#define STATS_HASH_MAP_SIZE 100
 
 #include <pthread.h>
 
@@ -23,7 +23,7 @@ typedef struct _stats {
 	client_stats **map;
 } statistics;
 
-statistics *new_stats(void);
+statistics *new_stats(int);
 client_stats *get_client_stats(statistics *s, int client_id);
 void rm_client_stats(statistics *s, int client_id);
 void free_client_stats(client_stats *cs);

@@ -10,13 +10,13 @@
 #define GC_CALLOC(m,n) GC_MALLOC((m)*(n))
 
 // create a new statistics value.
-statistics *new_stats(void) {
+statistics *new_stats(int size) {
 	statistics *s = GC_MALLOC(sizeof(statistics));
 	pthread_mutex_init(&s->lock, NULL);
 	s->refcnt = 1;
 	s->clients = 0;
-	s->map_size = STATS_HASH_MAP_SIZE;
-	s->map = GC_CALLOC(sizeof(client_stats*), STATS_HASH_MAP_SIZE);
+	s->map_size = size;
+	s->map = GC_CALLOC(sizeof(client_stats*), size);
 	return s;
 }
 

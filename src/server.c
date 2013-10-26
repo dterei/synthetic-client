@@ -40,6 +40,8 @@
 #include <gc.h>
 #define GC_CALLOC(m,n) GC_MALLOC((m)*(n))
 
+#define GC_INTERVAL 10
+
 #define REQ_PER_EVENT 20
 
 // possible results reading from network.
@@ -66,6 +68,7 @@ static read_result read_network(conn *c);
 static bool read_command(conn *c);
 static void process_command(conn *c, char *command);
 static write_result transmit(conn *c);
+static void time_loop(const int fd, const short which, void *arg);
 
 // globals
 settings config;
@@ -100,8 +103,9 @@ int main (int argc, char **argv) {
 	fprintf(stderr, "Pause time bound: %ldms\n", GC_get_time_limit());
 	fprintf(stderr, "Heap size: %ldkb\n", GC_get_heap_size() / 1024);
 	fprintf(stderr, "Free size: %ldkb\n", GC_get_free_bytes() / 1024);
+	fprintf(stderr, "Incremental needs: %d\n", GC_incremental_protection_needs());
 	GC_enable_incremental();
-	
+
 	// parse settings.
 	config = settings_init();
 	if (!settings_parse(argc, argv, &config)) {
@@ -119,8 +123,15 @@ int main (int argc, char **argv) {
 
 	// generate some user test data if asked for.
 	if (config.users > 0) {
+		fprintf(stderr, "Generating %d test users\n", config.users);
+		config.stats = new_stats(config.users / 3 + 1);
 		stat_test_data(config.stats, config.users);
+	} else {
+		config.stats = new_stats(STATS_HASH_MAP_SIZE);
 	}
+
+	// start our timer loop.
+	time_loop(0, 0, NULL);
 
 	// create the listening socket, bind it, and init.
 	errno = 0;
@@ -754,5 +765,27 @@ void error_response(conn *c, const char *str) {
 	conn_set_state(c, conn_write);
 	c->after_write = conn_new_cmd;
 	return;
+}
+
+static void time_loop(const int fd, const short which, void *arg) {
+	struct timeval t = {.tv_sec = GC_INTERVAL, .tv_usec = 0};
+	static struct event clockevent;
+	static bool initialized = false;
+	static int count = 0;
+
+	if (initialized) {
+		evtimer_del(&clockevent);
+	} else {
+		initialized = true;
+	}
+
+	evtimer_set(&clockevent, time_loop, 0);
+	event_base_set(main_base, &clockevent);
+	evtimer_add(&clockevent, &t);
+
+	fprintf(stderr, "running collection...\n");
+	while (GC_collect_a_little()) {}
+
+	if (++count % 6) GC_gcollect();
 }
 
