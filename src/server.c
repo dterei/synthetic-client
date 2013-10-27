@@ -97,6 +97,7 @@ int main (int argc, char **argv) {
 
 	// init GC
 	GC_INIT();
+	fprintf(stderr, "GC Enabled: %d\n", !GC_is_disabled());
 	fprintf(stderr, "Parallel GC: %d\n", GC_get_parallel());
 	fprintf(stderr, "Minor freq: %d\n", GC_get_full_freq());
 	fprintf(stderr, "Free space divider: %ld\n", GC_get_free_space_divisor());
@@ -104,7 +105,7 @@ int main (int argc, char **argv) {
 	fprintf(stderr, "Heap size: %ldkb\n", GC_get_heap_size() / 1024);
 	fprintf(stderr, "Free size: %ldkb\n", GC_get_free_bytes() / 1024);
 	fprintf(stderr, "Incremental needs: %d\n", GC_incremental_protection_needs());
-	GC_enable_incremental();
+	/* GC_enable_incremental(); */
 
 	// parse settings.
 	config = settings_init();
