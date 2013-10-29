@@ -7,7 +7,8 @@ item fixed_item =
 	{ .nkey    = 4,
 	  .nsuffix = 5,
 	  .nbytes  = 7,
-	  .data    = "key \0000 5\r\nhello\r\n"
+	  .data    = "key \0000 5\r\nhello\r\n",
+	  .refcnt  = 0
 	};
 
 // lookup a key-value.

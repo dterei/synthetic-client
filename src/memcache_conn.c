@@ -99,15 +99,15 @@ memcached_t* memcache_connect(struct event_base *base, char *host) {
 }
 
 // get a memcache value associated with the given key.
-bool memcache_get(conn *mc, conn *c, char *key) {
+bool memcache_get(conn *mc, conn *c, char *key, unsigned short *key_refcnt) {
 	assert(mc != NULL);
 	assert(c != NULL);
 	assert(key != NULL);
 
 	int keylen = strnlen(key, KEY_MAX_LENGTH);
-	if (!conn_add_iov(mc, "get ", 4) ||
-	    !conn_add_iov(mc, key, keylen) ||
-		 !conn_add_iov(mc, "\r\n", 2)) {
+	if (!conn_add_iov(mc, "get ", NULL, 4) ||
+	    !conn_add_iov(mc, key, key_refcnt, keylen) ||
+		 !conn_add_iov(mc, "\r\n", NULL, 2)) {
 		if (config.verbose > 0) {
 			error_response(c, "SERVER_ERROR out of memory performing backend rpc");
 		}

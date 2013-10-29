@@ -10,7 +10,7 @@
 typedef conn memcached_t;
 
 memcached_t* memcache_connect(struct event_base *base, char *host);
-bool memcache_get(conn *mc, conn *c, char *key);
+bool memcache_get(conn *mc, conn *c, char *key, unsigned short *key_refcnt);
 bool memcached_response(conn *mc, char *response);
 
 #endif

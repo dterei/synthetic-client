@@ -3,7 +3,7 @@
 
 #include <pthread.h>
 
-pthread_mutex_t refcnt_lock;;
+pthread_mutex_t refcnt_lock;
 void locking_init(void);
 
 int mutex_lock(pthread_mutex_t *mutex);

@@ -124,13 +124,13 @@ conn *conn_new(enum conn_type type,
 		}
 	/* } */
 
-	refcount_incr(c->refcnt_conn,  refcnt_lock);
-	refcount_incr(c->refcnt_rbuf,  refcnt_lock);
-	refcount_incr(c->refcnt_wbuf,  refcnt_lock);
-	refcount_incr(c->refcnt_iov,   refcnt_lock);
-	refcount_incr(c->refcnt_msg,   refcnt_lock);
-	refcount_incr(c->refcnt_ilist, refcnt_lock);
-	refcount_incr(c->refcnt_rpc,   refcnt_lock);
+	refcount_incr(&c->refcnt_conn,  &refcnt_lock);
+	refcount_incr(&c->refcnt_rbuf,  &refcnt_lock);
+	refcount_incr(&c->refcnt_wbuf,  &refcnt_lock);
+	refcount_incr(&c->refcnt_iov,   &refcnt_lock);
+	refcount_incr(&c->refcnt_msg,   &refcnt_lock);
+	refcount_incr(&c->refcnt_ilist, &refcnt_lock);
+	refcount_incr(&c->refcnt_rpc,   &refcnt_lock);
 	
 	c->client_id = client_id;
 	c->type = type;
@@ -175,24 +175,24 @@ conn *conn_new(enum conn_type type,
 // Frees a connection.
 static void conn_free(conn *c) {
 	if (c) {
-		unsigned short r = refcount_decr(c->refcnt_conn, refcnt_lock);
+		unsigned short r = refcount_decr(&c->refcnt_conn, &refcnt_lock);
 		if (r == 0) {
-			r = refcount_decr(c->refcnt_rbuf, refcnt_lock);
+			r = refcount_decr(&c->refcnt_rbuf, &refcnt_lock);
 			if (c->rbuf && r == 0) free(c->rbuf);
 
-			r = refcount_decr(c->refcnt_wbuf, refcnt_lock);
+			r = refcount_decr(&c->refcnt_wbuf, &refcnt_lock);
 			if (c->wbuf && r == 0) free(c->wbuf);
 
-			r = refcount_decr(c->refcnt_iov, refcnt_lock);
+			r = refcount_decr(&c->refcnt_iov, &refcnt_lock);
 			if (c->iov && r == 0) free(c->iov);
 
-			r = refcount_decr(c->refcnt_msg, refcnt_lock);
+			r = refcount_decr(&c->refcnt_msg, &refcnt_lock);
 			if (c->msglist && r == 0) free(c->msglist);
 
-			r = refcount_decr(c->refcnt_ilist, refcnt_lock);
+			r = refcount_decr(&c->refcnt_ilist, &refcnt_lock);
 			if (c->ilist && r == 0) free(c->ilist);
 
-			r = refcount_rpc(c->refcnt_rpc, refcnt_lock);
+			r = refcount_decr(&c->refcnt_rpc, &refcnt_lock);
 			if (c->rpc) free(c->rpc);
 
 			free(c);
@@ -214,7 +214,7 @@ void conn_close(conn *c) {
 		free_client_stats(c->stats);
 	}
 	c->stats = NULL;
-	if (c->mem_blob != NULL && refcount_decr(c->refcnt_blob, refcnt_lock) == 0) {
+	if (c->mem_blob != NULL && refcount_decr(&c->refcnt_blob, &refcnt_lock) == 0) {
 		free(c->mem_blob);
 		c->mem_blob = NULL;
 	}
@@ -301,6 +301,7 @@ int conn_add_msghdr(conn *c) {
 	// last 3 of which aren't defined on solaris:
 	memset(msg, 0, sizeof(struct msghdr));
 	msg->msg_iov = &c->iov[c->iovused];
+	refcount_incr(&c->refcnt_iov, &refcnt_lock);
 	c->msgbytes = 0;
 	c->msgused++;
 
@@ -336,13 +337,14 @@ static bool conn_ensure_iov_space(conn *c) {
 // connection.
 //
 // @return true on success, false on out-of-memory.
-bool conn_add_iov(conn *c, const void *buf, int len) {
+bool conn_add_iov(conn *c, void *buf, unsigned short *refcnt, int len) {
 	assert(c != NULL);
 	assert(c->msglist != NULL);
 
 	int leftover;
 	do {
 		struct msghdr *m = &c->msglist[c->msgused - 1];
+		refcount_incr(&c->refcnt_msg, &refcnt_lock);
 
 		// Limit the first payloads of TCP replies, to MAX_PAYLOAD_SIZE bytes.
 		bool limit_to_mtu = 1 == c->msgused;
@@ -366,8 +368,9 @@ bool conn_add_iov(conn *c, const void *buf, int len) {
 
 		assert(m != NULL);
 		assert(m->msg_iov != NULL);
-		m->msg_iov[m->msg_iovlen].iov_base = (void *)buf;
+		m->msg_iov[m->msg_iovlen].iov_base = buf;
 		m->msg_iov[m->msg_iovlen].iov_len = len;
+		if (refcnt != NULL) refcount_incr(refcnt, &refcnt_lock);
 
 		c->msgbytes += len;
 		c->iovused++;
@@ -375,6 +378,8 @@ bool conn_add_iov(conn *c, const void *buf, int len) {
 
 		buf = ((char *)buf) + len;
 		len = leftover;
+
+		refcount_decr(&c->refcnt_msg, &refcnt_lock);
 	} while (leftover > 0);
 
 	return true;

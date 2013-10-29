@@ -4,6 +4,7 @@
 
 #include "fsm.h"
 #include "items.h"
+#include "locking.h"
 #include "stats.h"
 
 #include <event.h>
@@ -139,7 +140,7 @@ int conn_update_event(conn *c, const int new_flags);
 int conn_update_event_t(conn *c, const int new_flags, struct timeval *t);
 void conn_shrink(conn *c);
 int conn_add_msghdr(conn *c);
-bool conn_add_iov(conn *c, const void *buf, int len);
+bool conn_add_iov(conn *c, void *buf, unsigned short *refcnt, int len);
 bool conn_expand_items(conn *c);
 bool conn_ensure_rpc_space(conn *c);
 

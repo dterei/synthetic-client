@@ -4,7 +4,7 @@
 
 // startup our locking system.
 void locking_init(void) {
-	pthread_mutex_init(&refcnt_lock;, NULL);
+	pthread_mutex_init(&refcnt_lock, NULL);
 }
 
 // increase the refcnt of an object.

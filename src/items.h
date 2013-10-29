@@ -39,6 +39,7 @@
 // item   item.data  item.data+nkey+1                 item.data+nkey+1+nsuffix
 //
 typedef struct _stritem {
+	unsigned short refcnt; // refcount for memory management.
 	uint8_t nkey;    // key length including padding but not null-terminator.
 	uint8_t nsuffix; // length of flags_and_data-length string.
 	int     nbytes;  // size of data.

@@ -16,6 +16,7 @@
 #include "connections.h"
 #include "fsm.h"
 #include "items.h"
+#include "locking.h"
 #include "protocol.h"
 #include "server.h"
 #include "settings.h"
@@ -297,8 +298,12 @@ static void drive_machine(conn *c) {
 
 		case conn_new_cmd:
 			if (c->mem_blob != NULL && c->mem_free_delay == 0) {
-				free(c->mem_blob);
 				c->mem_blob = NULL;
+				unsigned short count = refcount_decr(&c->refcnt_blob, &refcnt_lock);
+				if (config.verbose > 1) {
+					fprintf(stderr, "blob refcnt: %d\n", count);
+				}
+				if (count == 0) free(c->mem_blob);
 			} else if (c->mem_free_delay > 0) {
 				if (config.verbose > 1) {
 					fprintf(stderr, "wait left %d\n", c->mem_free_delay);
@@ -433,7 +438,7 @@ static void drive_machine(conn *c) {
 				// assemble it into a msgbuf list (this will be a single-entry list
 				// for TCP).
             if (c->iovused == 0) {
-					if (!conn_add_iov(c, c->wcurr, c->wbytes)) {
+					if (!conn_add_iov(c, c->wcurr, &c->refcnt_wbuf, c->wbytes)) {
 						if (config.verbose > 0) {
 							fprintf(stderr, "Couldn't build response\n");
 						}
@@ -666,6 +671,7 @@ static write_result transmit(conn *c) {
 
 	// check if current msg finished and more msgs remaining.
 	if (c->msgcurr < c->msgused && c->msglist[c->msgcurr].msg_iovlen == 0) {
+		refcount_decr(&c->refcnt_iov, &refcnt_lock);
 		c->msgcurr++;
 	}
 
@@ -673,12 +679,17 @@ static write_result transmit(conn *c) {
 	if (c->msgcurr < c->msgused) {
 		ssize_t res;
 		struct msghdr *m = &c->msglist[c->msgcurr];
+		refcount_incr(&c->refcnt_msg, &refcnt_lock);
 
 		res = sendmsg(c->sfd, m, 0);
 		if (res > 0) {
 			// We've written some of the data. Remove the completed iovec entries
 			// from the list of pending writes.
 			while (m->msg_iovlen > 0 && res >= m->msg_iov->iov_len) {
+				if (m->msg_iov->iov_base >= ((void *)c->wbuf) &&
+						m->msg_iov->iov_base < ((void*)c->wbuf)) {
+					refcount_decr(&c->refcnt_wbuf, &refcnt_lock);
+				}
 				res -= m->msg_iov->iov_len;
 				m->msg_iovlen--;
 				m->msg_iov++;
@@ -690,9 +701,11 @@ static write_result transmit(conn *c) {
 				m->msg_iov->iov_base = (caddr_t)m->msg_iov->iov_base + res;
 				m->msg_iov->iov_len -= res;
 			}
+			refcount_decr(&c->refcnt_msg, &refcnt_lock);
 			return TRANSMIT_INCOMPLETE;
 
 		} else if (res == -1 && (errno == EAGAIN || errno == EWOULDBLOCK)) {
+			refcount_decr(&c->refcnt_msg, &refcnt_lock);
 			if (!conn_update_event(c, EV_WRITE | EV_PERSIST)) {
 				conn_set_state(c, conn_closing);
 				return TRANSMIT_HARD_ERROR;
@@ -700,6 +713,7 @@ static write_result transmit(conn *c) {
 			return TRANSMIT_SOFT_ERROR;
 
 		} else {
+			refcount_decr(&c->refcnt_msg, &refcnt_lock);
 			// if res == 0 or res == -1 and error is not EAGAIN or EWOULDBLOCK, we
 			// have a real error, on which we close the connection.
 			if (config.verbose > 0) {

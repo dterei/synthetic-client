@@ -102,9 +102,9 @@ void finish_get_command(conn *c) {
 			//   "<data>\r\n"
 			// The <data> element is stored on the connection item list, not on
 			// the iov list.
-			if (!conn_add_iov(c, "VALUE ", 6) ||
-				 !conn_add_iov(c, ITEM_key(it), it->nkey) ||
-				 !conn_add_iov(c, ITEM_suffix(it), it->nsuffix + it->nbytes)) {
+			if (!conn_add_iov(c, "VALUE ", NULL, 6) ||
+				 !conn_add_iov(c, ITEM_key(it), &it->refcnt, it->nkey) ||
+				 !conn_add_iov(c, ITEM_suffix(it), &it->refcnt, it->nsuffix + it->nbytes)) {
 				item_remove(it);
 				error_response(c, "SERVER_ERROR out of memory writing get response");
 				return;
@@ -123,7 +123,7 @@ void finish_get_command(conn *c) {
 		fprintf(stderr, ">%d END\n", c->sfd);
 	}
 
-	if (!conn_add_iov(c, "END\r\n", 5) != 0) {
+	if (!conn_add_iov(c, "END\r\n", NULL, 5) != 0) {
 		error_response(c, "SERVER_ERROR out of memory writing get response");
 	} else {
 		conn_set_state(c, conn_mwrite);
@@ -150,6 +150,7 @@ void process_get_command(conn *c, token_t *tokens, size_t ntokens,
 		}
 
 		c->mem_blob = malloc(sizeof(char) * size);
+		refcount_incr(&c->refcnt_blob, &refcnt_lock);
 		c->mem_free_delay = 0;
 
 		if (config.rtt_delay) {
@@ -193,9 +194,9 @@ void process_get_command(conn *c, token_t *tokens, size_t ntokens,
 				//   "<data>\r\n"
 				// The <data> element is stored on the connection item list, not on
 				// the iov list.
-				if (!conn_add_iov(c, "VALUE ", 6) != 0 ||
-				    !conn_add_iov(c, ITEM_key(it), it->nkey) != 0 ||
-				    !conn_add_iov(c, ITEM_suffix(it), it->nsuffix + it->nbytes) != 0) {
+				if (!conn_add_iov(c, "VALUE ", NULL, 6) != 0 ||
+				    !conn_add_iov(c, ITEM_key(it), &it->refcnt,it->nkey) != 0 ||
+				    !conn_add_iov(c, ITEM_suffix(it), &it->refcnt, it->nsuffix + it->nbytes) != 0) {
 					item_remove(it);
 					break;
 				}
@@ -236,7 +237,7 @@ void process_get_command(conn *c, token_t *tokens, size_t ntokens,
 	// If the loop was terminated because of out-of-memory, it is not reliable
 	// to add END\r\n to the buffer, because it might not end in \r\n. So we
 	// send SERVER_ERROR instead.
-	if (key_token->value != NULL || !conn_add_iov(c, "END\r\n", 5) != 0) {
+	if (key_token->value != NULL || !conn_add_iov(c, "END\r\n", NULL, 5) != 0) {
 		error_response(c, "SERVER_ERROR out of memory writing get response");
 	} else {
 		conn_set_state(c, conn_mwrite);
