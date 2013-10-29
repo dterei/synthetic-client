@@ -90,9 +90,10 @@ conn *conn_new(enum conn_type type,
                const int event_flags,
                const int read_buffer_size,
                struct event_base *base) {
-	conn *c = conn_from_freelist();
+	/* conn *c = conn_from_freelist(); */
+	conn *c = NULL;
 
-	if (NULL == c) {
+	/* if (NULL == c) { */
 		if (!(c = (conn *)calloc(1, sizeof(conn)))) {
 			fprintf(stderr, "calloc()\n");
 			return NULL;
@@ -121,8 +122,16 @@ conn *conn_new(enum conn_type type,
 			fprintf(stderr, "malloc()\n");
 			return NULL;
 		}
-	}
+	/* } */
 
+	refcount_incr(c->refcnt_conn,  refcnt_lock);
+	refcount_incr(c->refcnt_rbuf,  refcnt_lock);
+	refcount_incr(c->refcnt_wbuf,  refcnt_lock);
+	refcount_incr(c->refcnt_iov,   refcnt_lock);
+	refcount_incr(c->refcnt_msg,   refcnt_lock);
+	refcount_incr(c->refcnt_ilist, refcnt_lock);
+	refcount_incr(c->refcnt_rpc,   refcnt_lock);
+	
 	c->client_id = client_id;
 	c->type = type;
 	c->sfd = sfd;
@@ -153,9 +162,9 @@ conn *conn_new(enum conn_type type,
 	c->ev_flags = event_flags;
 
 	if (event_add(&c->event, 0) == -1) {
-		if (!conn_add_to_freelist(c)) {
+		/* if (!conn_add_to_freelist(c)) { */
 			conn_free(c);
-		}
+		/* } */
 		perror("event_add");
 		return NULL;
 	}
@@ -166,13 +175,28 @@ conn *conn_new(enum conn_type type,
 // Frees a connection.
 static void conn_free(conn *c) {
 	if (c) {
-		if (c->rbuf) free(c->rbuf);
-		if (c->wbuf) free(c->wbuf);
-		if (c->iov)  free(c->iov);
-		if (c->msglist) free(c->msglist);
-		if (c->ilist) free(c->ilist);
-		if (c->rpc) free(c->rpc);
-		free(c);
+		unsigned short r = refcount_decr(c->refcnt_conn, refcnt_lock);
+		if (r == 0) {
+			r = refcount_decr(c->refcnt_rbuf, refcnt_lock);
+			if (c->rbuf && r == 0) free(c->rbuf);
+
+			r = refcount_decr(c->refcnt_wbuf, refcnt_lock);
+			if (c->wbuf && r == 0) free(c->wbuf);
+
+			r = refcount_decr(c->refcnt_iov, refcnt_lock);
+			if (c->iov && r == 0) free(c->iov);
+
+			r = refcount_decr(c->refcnt_msg, refcnt_lock);
+			if (c->msglist && r == 0) free(c->msglist);
+
+			r = refcount_decr(c->refcnt_ilist, refcnt_lock);
+			if (c->ilist && r == 0) free(c->ilist);
+
+			r = refcount_rpc(c->refcnt_rpc, refcnt_lock);
+			if (c->rpc) free(c->rpc);
+
+			free(c);
+		}
 	}
 }
 
@@ -190,15 +214,15 @@ void conn_close(conn *c) {
 		free_client_stats(c->stats);
 	}
 	c->stats = NULL;
-	if (c->mem_blob != NULL) {
+	if (c->mem_blob != NULL && refcount_decr(c->refcnt_blob, refcnt_lock) == 0) {
 		free(c->mem_blob);
 		c->mem_blob = NULL;
 	}
 
 	/* if the connection has big buffers, just free it */
-	if (!conn_add_to_freelist(c)) {
+	/* if (!conn_add_to_freelist(c)) { */
 		conn_free(c);
-	}
+	/* } */
 }
 
 // Sets a connection's current state in the state machine. Any special

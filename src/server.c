@@ -100,6 +100,9 @@ int main (int argc, char **argv) {
 	// initialize other stuff.
 	conn_init();
 
+	// initialize our locking system.
+	locking_init();
+
 	// start up worker threads.
 	thread_init(config.threads, main_base);
 

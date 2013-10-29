@@ -2,6 +2,11 @@
 #include <pthread.h>
 #include <stdlib.h>
 
+// startup our locking system.
+void locking_init(void) {
+	pthread_mutex_init(&refcnt_lock;, NULL);
+}
+
 // increase the refcnt of an object.
 inline unsigned short refcount_incr(unsigned short *refcount, pthread_mutex_t *mutex) {
 #ifdef HAVE_GCC_ATOMICS

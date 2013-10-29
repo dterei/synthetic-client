@@ -111,6 +111,15 @@ typedef struct _conn {
 	client_stats *stats;             // client specific stats.
 	void *mem_blob;                  // some random allocated memory for synthetic testing.
 	int   mem_free_delay;            // number of requests to wait before free'ing mem_blob.
+
+	unsigned short refcnt_conn;
+	unsigned short refcnt_rbuf;
+	unsigned short refcnt_wbuf;
+	unsigned short refcnt_iov;
+	unsigned short refcnt_msg;
+	unsigned short refcnt_ilist;
+	unsigned short refcnt_rpc;
+	unsigned short refcnt_blob;
 } conn;
 
 // new connection management.
