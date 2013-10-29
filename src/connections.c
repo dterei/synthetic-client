@@ -174,23 +174,33 @@ conn *conn_new(enum conn_type type,
 
 // Frees a connection.
 static void conn_free(conn *c) {
+	if (config.verbose > 1) {
+		fprintf(stderr, "free connection: %d\n", c->refcnt_conn);
+		fprintf(stderr, "rbuf: %d\n", c->refcnt_rbuf);
+		fprintf(stderr, "wbuf: %d\n", c->refcnt_wbuf);
+		fprintf(stderr, "iov: %d\n", c->refcnt_iov);
+		fprintf(stderr, "msg: %d\n", c->refcnt_msg);
+		fprintf(stderr, "ilist: %d\n", c->refcnt_ilist);
+		fprintf(stderr, "rpc: %d\n", c->refcnt_rpc);
+	}
+
 	if (c) {
 		unsigned short r = refcount_decr(&c->refcnt_conn, &refcnt_lock);
 		if (r == 0) {
 			r = refcount_decr(&c->refcnt_rbuf, &refcnt_lock);
-			if (c->rbuf && r == 0) free(c->rbuf);
+			if (c->rbuf) free(c->rbuf);
 
 			r = refcount_decr(&c->refcnt_wbuf, &refcnt_lock);
-			if (c->wbuf && r == 0) free(c->wbuf);
+			if (c->wbuf) free(c->wbuf);
 
 			r = refcount_decr(&c->refcnt_iov, &refcnt_lock);
-			if (c->iov && r == 0) free(c->iov);
+			if (c->iov) free(c->iov);
 
 			r = refcount_decr(&c->refcnt_msg, &refcnt_lock);
-			if (c->msglist && r == 0) free(c->msglist);
+			if (c->msglist) free(c->msglist);
 
 			r = refcount_decr(&c->refcnt_ilist, &refcnt_lock);
-			if (c->ilist && r == 0) free(c->ilist);
+			if (c->ilist) free(c->ilist);
 
 			r = refcount_decr(&c->refcnt_rpc, &refcnt_lock);
 			if (c->rpc) free(c->rpc);
