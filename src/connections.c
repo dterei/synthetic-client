@@ -186,7 +186,7 @@ static void conn_free(conn *c) {
 
 	if (c) {
 		unsigned short r = refcount_decr(&c->refcnt_conn, &refcnt_lock);
-		if (r == 0) {
+		/* if (r == 0) { */
 			r = refcount_decr(&c->refcnt_rbuf, &refcnt_lock);
 			if (c->rbuf) free(c->rbuf);
 
@@ -206,7 +206,7 @@ static void conn_free(conn *c) {
 			if (c->rpc) free(c->rpc);
 
 			free(c);
-		}
+		/* } */
 	}
 }
 
@@ -216,6 +216,8 @@ void conn_close(conn *c) {
 
 	/* delete the event, the socket and the conn */
 	event_del(&c->event);
+	/* event system no longer has ref to us */
+	refcount_decr(&c->refcnt_conn, &refcnt_lock);
 	if (config.verbose > 1) {
 		fprintf(stderr, "<%d connection closed.\n", c->sfd);
 	}
@@ -270,6 +272,9 @@ int conn_update_event_t(conn *c, const int new_flags, struct timeval *t) {
 		return 0;
 	}
 
+	// to account for event updating...
+	refcount_decr(&c->refcnt_conn, &refcnt_lock);
+	refcount_incr(&c->refcnt_conn, &refcnt_lock);
 	event_set(&c->event, c->sfd, new_flags, event_handler, (void *)c);
 	event_base_set(base, &c->event);
 	c->ev_flags = new_flags;
@@ -334,6 +339,8 @@ static bool conn_ensure_iov_space(conn *c) {
 
 		// Point all the msghdr structures at the new list.
 		for (i = 0, iovnum = 0; i < c->msgused; i++) {
+			refcount_decr(&c->refcnt_iov, &refcnt_lock);
+			refcount_incr(&c->refcnt_iov, &refcnt_lock);
 			c->msglist[i].msg_iov = &c->iov[iovnum];
 			iovnum += c->msglist[i].msg_iovlen;
 		}

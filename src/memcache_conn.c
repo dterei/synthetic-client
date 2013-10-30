@@ -143,7 +143,7 @@ bool memcached_response(conn *mc, char *response) {
 	assert(mc != NULL);
 	assert(response != NULL);
 
-	ntokens = tokenize_command(response, tokens, MAX_TOKENS);
+	ntokens = tokenize_command(mc, response, tokens, MAX_TOKENS);
 	if (ntokens >= 5 && (strcmp(tokens[COMMAND_TOKEN].value, "VALUE") == 0)) {
 		process_hit_response(mc, tokens, ntokens);
 	} else if (ntokens >= 2 && (strcmp(tokens[COMMAND_TOKEN].value, "END") == 0)) {

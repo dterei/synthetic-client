@@ -1,5 +1,6 @@
 // the memcached item (key-value) representation and storage.
 #include "items.h"
+#include "locking.h"
 
 #include <unistd.h>
 
@@ -13,11 +14,13 @@ item fixed_item =
 
 // lookup a key-value.
 item *item_get(const char *key, const size_t nkey) {
+	refcount_incr(&fixed_item.refcnt, &refcnt_lock);
 	return &fixed_item;
 }
 
 // decrease the ref count on the item and add to free-list if 0.
 void item_remove(item *item) {
+	refcount_decr(&fixed_item.refcnt, &refcnt_lock);
 	// noop
 }
 

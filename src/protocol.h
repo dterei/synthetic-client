@@ -28,7 +28,7 @@ typedef struct token_s {
 // max length of a key.
 #define KEY_MAX_LENGTH 250
 
-size_t tokenize_command(char *command, token_t *tokens, const size_t max_tokens);
+size_t tokenize_command(conn *c, char *command, token_t *tokens, const size_t max_tokens);
 bool parse_command(conn *c, char *command);
 
 #endif

@@ -25,7 +25,7 @@
  *      command  = tokens[ix].value;
  *   }
  */
-size_t tokenize_command(char *command, token_t *tokens, const size_t max_tokens) {
+size_t tokenize_command(conn *c, char *command, token_t *tokens, const size_t max_tokens) {
 	char *s, *e;
 	size_t ntokens = 0;
 	size_t len = strlen(command);
@@ -37,6 +37,7 @@ size_t tokenize_command(char *command, token_t *tokens, const size_t max_tokens)
 	for (i = 0; i < len; i++) {
 		if (*e == ' ') {
 			if (s != e) {
+				refcount_incr(&c->refcnt_rbuf, &refcnt_lock);
 				tokens[ntokens].value = s;
 				tokens[ntokens].length = e - s;
 				ntokens++;
@@ -53,6 +54,7 @@ size_t tokenize_command(char *command, token_t *tokens, const size_t max_tokens)
 	}
 
 	if (s != e) {
+		refcount_incr(&c->refcnt_rbuf, &refcnt_lock);
 		tokens[ntokens].value = s;
 		tokens[ntokens].length = e - s;
 		ntokens++;
@@ -75,7 +77,7 @@ bool parse_command(conn *c, char *command) {
 
 	assert(c != NULL);
 
-	ntokens = tokenize_command(command, tokens, MAX_TOKENS);
+	ntokens = tokenize_command(c, command, tokens, MAX_TOKENS);
 	if (ntokens >= 3 &&
 			((strcmp(tokens[COMMAND_TOKEN].value, "get") == 0) ||
 			(strcmp(tokens[COMMAND_TOKEN].value, "bget") == 0))) {
@@ -143,6 +145,10 @@ bool parse_command(conn *c, char *command) {
 
 	} else {
 		return false;
+	}
+
+	for (int i = 0; i < ntokens; i++) {
+		refcount_decr(&c->refcnt_rbuf, &refcnt_lock);
 	}
 
 	// NOTE: No refcnt needed here as not changing pointer structure.

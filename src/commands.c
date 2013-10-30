@@ -94,7 +94,9 @@ void finish_get_command(conn *c) {
 
 	// setup all items for writing out.
 	for (i = 0; i < c->ileft; i++) {
+		if (it != NULL) refcount_decr(&it->refcnt, &refcnt_lock);
 		it = *(c->ilist + i);
+		refcount_incr(&it->refcnt, &refcnt_lock);
 		if (it) {
 			// Construct the response. Each hit adds three elements to the
 			// outgoing data list:
@@ -221,7 +223,7 @@ void process_get_command(conn *c, token_t *tokens, size_t ntokens,
 		 * of tokens.
 		 */
 		if(key_token->value != NULL) {
-			ntokens = tokenize_command(key_token->value, tokens, MAX_TOKENS);
+			ntokens = tokenize_command(c, key_token->value, tokens, MAX_TOKENS);
 			key_token = tokens;
 		}
 

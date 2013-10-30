@@ -236,6 +236,7 @@ static int server_socket(int port) {
 void event_handler(const int fd, const short which, void *arg) {
 	conn *c;
 	c = (conn *)arg;
+	refcount_incr(&c->refcnt_conn, &refcnt_lock);
 	assert(c != NULL);
 	c->which = which;
 
@@ -458,9 +459,11 @@ static void drive_machine(conn *c) {
 						while (c->ileft > 0) {
 							// release the item.
 							item *it = *(c->icurr);
+							refcount_incr(&it->refcnt, &refcnt_lock);
 							item_remove(it);
 							c->icurr++;
 							c->ileft--;
+							refcount_decr(&it->refcnt, &refcnt_lock);
 						}
 						conn_set_state(c, conn_new_cmd);
 					} else if (c->state == conn_write) {
@@ -599,6 +602,7 @@ static bool read_command(conn *c) {
 
 	// find end-of-line.
 	el = memchr(c->rcurr, '\n', c->rbytes);
+	refcount_incr(&c->refcnt_rbuf, &refcnt_lock);
 
 	// not found.
 	if (!el) {
@@ -611,9 +615,11 @@ static bool read_command(conn *c) {
 			if (ptr - c->rcurr > 100 ||
 			    (strncmp(ptr, "get ", 4) && strncmp(ptr, "gets ", 5))) {
 				conn_set_state(c, conn_closing);
+				refcount_decr(&c->refcnt_rbuf, &refcnt_lock);
 				return true;
 			}
 		}
+		refcount_decr(&c->refcnt_rbuf, &refcnt_lock);
 		return false;
 	}
 
@@ -630,6 +636,7 @@ static bool read_command(conn *c) {
 	c->rbytes -= (cont - c->rcurr);
 	c->rcurr = cont;
 	assert(c->rcurr <= (c->rbuf + c->rsize));
+	refcount_decr(&c->refcnt_rbuf, &refcnt_lock);
 	return true;
 }
 
