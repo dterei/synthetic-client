@@ -3,6 +3,9 @@
 
 #include <pthread.h>
 
+#define RC_MALLOC malloc
+#define RC_CALLOC calloc
+
 int mutex_lock(pthread_mutex_t *mutex);
 #define mutex_unlock(x) pthread_mutex_unlock(x)
 unsigned short refcount_incr(unsigned short *refcount, pthread_mutex_t *mutex);
