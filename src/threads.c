@@ -55,7 +55,7 @@ static pthread_cond_t init_cond;
 
 // Initializes a connection queue.
 static conn_queue_t* conn_queue_new(void) {
-	conn_queue_t *cq = malloc(sizeof(conn_queue_t));
+	conn_queue_t *cq = (conn_queue_t *) malloc(sizeof(conn_queue_t));
 	if (cq == NULL) {
 		perror("Failed to allocate memory for connection queue");
 		exit(EXIT_FAILURE);
@@ -96,7 +96,7 @@ static new_conn_t *conn_queue_pop(conn_queue_t *cq) {
 static new_conn_t *cqi_new(void) {
 	// NOTE: Memcached uses a freelist here and group allocation to reducde
 	// fragementation.
-	new_conn_t *new_conn = malloc(sizeof(new_conn_t));
+	new_conn_t *new_conn = (new_conn_t *) malloc(sizeof(new_conn_t));
 	return new_conn;
 }
 
@@ -117,7 +117,7 @@ void thread_init(int nthreads, struct event_base *main_base) {
 	pthread_mutex_init(&init_lock, NULL);
 	pthread_cond_init(&init_cond, NULL);
 
-	threads = calloc(nthreads, sizeof(worker_thread_t));
+	threads = (worker_thread_t *) calloc(nthreads, sizeof(worker_thread_t));
 	if (!threads) {
 		perror("Can't allocate thread descriptors");
 		exit(1);
@@ -183,7 +183,7 @@ static void setup_thread(worker_thread_t *t) {
 	
 	// setup memcache connections
 	t->memcache_used = 0;
-	t->memcache = malloc(sizeof(memcached_t *) * config.backends.len);
+	t->memcache = (memcached_t **) malloc(sizeof(memcached_t *) * config.backends.len);
 	memcached_t *mc;
 	for (int i = 0; i < config.backends.len; i++) {
 		mc = memcache_connect(t->base, config.backends.hosts[i]);
@@ -250,7 +250,7 @@ static void register_thread_initialized(void) {
 
 // Worker thread: main entry point.
 static void *worker_entry(void *arg) {
-	worker_thread_t *me = arg;
+	worker_thread_t *me = (worker_thread_t *) arg;
 	register_thread_initialized();
 
 	// enter the event loop
@@ -261,7 +261,7 @@ static void *worker_entry(void *arg) {
 // Handles a new connection event for a particular thread. Event notified
 // through a threads libevent wakeup pipe.
 static void thread_new_conn_handler(int fd, short which, void *arg) {
-	worker_thread_t *me = arg;
+	worker_thread_t *me = (worker_thread_t *) arg;
 	new_conn_t *new_conn;
 	char buf[1];
 

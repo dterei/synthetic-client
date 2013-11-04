@@ -7,12 +7,12 @@
 
 // create a new statistics value.
 statistics *new_stats(void) {
-	statistics *s = malloc(sizeof(statistics));
+	statistics *s = (statistics *) malloc(sizeof(statistics));
 	pthread_mutex_init(&s->lock, NULL);
 	s->refcnt = 1;
 	s->clients = 0;
 	s->map_size = STATS_HASH_MAP_SIZE;
-	s->map = calloc(sizeof(client_stats*), STATS_HASH_MAP_SIZE);
+	s->map = (client_stats **) calloc(sizeof(client_stats*), STATS_HASH_MAP_SIZE);
 	return s;
 }
 
@@ -27,7 +27,7 @@ client_stats *get_client_stats(statistics *s, int client_id) {
 	}
 
 	if (cs == NULL) {
-		cs = calloc(sizeof(client_stats), 1);
+		cs = (client_stats *) calloc(sizeof(client_stats), 1);
 		pthread_mutex_init(&cs->lock, NULL);
 		cs->client_id = client_id;
 		cs->refcnt = 2; // 1 for hashmap ref, one for return ref.

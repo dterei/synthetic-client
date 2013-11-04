@@ -43,7 +43,7 @@ static pthread_mutex_t conn_lock = PTHREAD_MUTEX_INITIALIZER;
 void conn_init(void) {
     freetotal = 200;
     freecurr = 0;
-    if ((freeconns = calloc(freetotal, sizeof(conn *))) == NULL) {
+    if ((freeconns = (conn **) calloc(freetotal, sizeof(conn *))) == NULL) {
         fprintf(stderr, "Failed to allocate connection structures\n");
     }
     return;
@@ -70,7 +70,7 @@ static bool conn_add_to_freelist(conn *c) {
     } else {
         /* try to enlarge free connections array */
         size_t newsize = freetotal * 2;
-        conn **new_freeconns = realloc(freeconns, sizeof(conn *) * newsize);
+        conn **new_freeconns = (conn **) realloc(freeconns, sizeof(conn *) * newsize);
         if (new_freeconns) {
             freetotal = newsize;
             freeconns = new_freeconns;
@@ -266,7 +266,7 @@ int conn_add_msghdr(conn *c) {
 	assert(c != NULL);
 
 	if (c->msgsize == c->msgused) {
-		msg = realloc(c->msglist, c->msgsize * 2 * sizeof(struct msghdr));
+		msg = (struct msghdr *) realloc(c->msglist, c->msgsize * 2 * sizeof(struct msghdr));
 		if (!msg) return 0;
 		c->msglist = msg;
 		c->msgsize *= 2;
@@ -358,7 +358,7 @@ bool conn_add_iov(conn *c, const void *buf, int len) {
 
 // grow the item list of a connection.
 bool conn_expand_items(conn *c) {
-	item **new_list = realloc(c->ilist, sizeof(item *) * c->isize * 2);
+	item **new_list = (item **) realloc(c->ilist, sizeof(item *) * c->isize * 2);
 	if (new_list) {
 		c->isize *= 2;
 		c->ilist = new_list;
@@ -376,7 +376,7 @@ bool conn_ensure_rpc_space(conn *mc) {
 	if (mc->rpcused >= mc->rpcsize) {
 		if (mc->rpcdone == 0) {
 			// expand queue as out of slots.
-			rpc = realloc(mc->rpc, sizeof(conn **) * mc->rpcsize * 2);
+			rpc = (conn **) realloc(mc->rpc, sizeof(conn **) * mc->rpcsize * 2);
 			if (!rpc) return false;
 			mc->rpc = rpc;
 			mc->rpcsize *= 2;

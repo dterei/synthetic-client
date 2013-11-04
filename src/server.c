@@ -100,6 +100,9 @@ int main (int argc, char **argv) {
 	// initialize other stuff.
 	conn_init();
 
+	// initialize item system.
+	item_init_system();
+
 	// start up worker threads.
 	thread_init(config.threads, main_base);
 
@@ -545,7 +548,7 @@ static read_result read_network(conn *c) {
 				return ret;
 			}
 			++num_allocs;
-			char *new_rbuf = realloc(c->rbuf, c->rsize * 2);
+			char *new_rbuf = (char *) realloc(c->rbuf, c->rsize * 2);
 			if (!new_rbuf) {
 				if (config.verbose > 0) {
 					fprintf(stderr, "Couldn't realloc input buffer\n");
@@ -590,7 +593,7 @@ static bool read_command(conn *c) {
 	if (c->rbytes == 0) return false;
 
 	// find end-of-line.
-	el = memchr(c->rcurr, '\n', c->rbytes);
+	el = (char *) memchr(c->rcurr, '\n', c->rbytes);
 
 	// not found.
 	if (!el) {

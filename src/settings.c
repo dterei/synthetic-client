@@ -36,7 +36,7 @@ settings settings_init(void) {
 	s.backends.len = 0;
 	// just allocate a big one so we should never need to expand.
 	s.backends.size = 1000;
-	s.backends.hosts = malloc(sizeof(char*) * s.backends.size);
+	s.backends.hosts = (char **) malloc(sizeof(char*) * s.backends.size);
 	s.stats = new_stats();
 	s.alloc_mean = 0;
 	s.alloc_stddev = 0;
@@ -90,7 +90,7 @@ bool settings_parse(int argc, char **argv, settings *s) {
 			break;
 		case 's':
 			len = strnlen(optarg, MAX_SERVER_STRING) + 1;
-			str = malloc(sizeof(char) * len);
+			str = (char *) malloc(sizeof(char) * len);
 			strncpy(str, optarg, len);
 			str[len - 1] = '\0';
 			s->backends.hosts[s->backends.len] = str;
