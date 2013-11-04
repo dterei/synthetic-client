@@ -51,7 +51,7 @@ void conn_init(void) {
 	liveconns = NULL;
 	freetotal = 200;
 	freecurr = 0;
-	if ((freeconns = GC_CALLOC(freetotal, sizeof(conn *))) == NULL) {
+	if ((freeconns = (conn **) GC_CALLOC(freetotal, sizeof(conn *))) == NULL) {
 		fprintf(stderr, "Failed to allocate connection structures\n");
 	}
 	return;
@@ -78,7 +78,7 @@ static bool conn_add_to_freelist(conn *c) {
     } else {
         /* try to enlarge free connections array */
         size_t newsize = freetotal * 2;
-        conn **new_freeconns = GC_REALLOC(freeconns, sizeof(conn *) * newsize);
+        conn **new_freeconns = (conn **) GC_REALLOC(freeconns, sizeof(conn *) * newsize);
         if (new_freeconns) {
             freetotal = newsize;
             freeconns = new_freeconns;
@@ -294,7 +294,7 @@ int conn_add_msghdr(conn *c) {
 	assert(c != NULL);
 
 	if (c->msgsize == c->msgused) {
-		msg = GC_REALLOC(c->msglist, c->msgsize * 2 * sizeof(struct msghdr));
+		msg = (struct msghdr *) GC_REALLOC(c->msglist, c->msgsize * 2 * sizeof(struct msghdr));
 		if (!msg) return 0;
 		c->msglist = msg;
 		c->msgsize *= 2;
@@ -386,7 +386,7 @@ bool conn_add_iov(conn *c, const void *buf, int len) {
 
 // grow the item list of a connection.
 bool conn_expand_items(conn *c) {
-	item **new_list = GC_REALLOC(c->ilist, sizeof(item *) * c->isize * 2);
+	item **new_list = (item **) GC_REALLOC(c->ilist, sizeof(item *) * c->isize * 2);
 	if (new_list) {
 		c->isize *= 2;
 		c->ilist = new_list;
@@ -404,7 +404,7 @@ bool conn_ensure_rpc_space(conn *mc) {
 	if (mc->rpcused >= mc->rpcsize) {
 		if (mc->rpcdone == 0) {
 			// expand queue as out of slots.
-			rpc = GC_REALLOC(mc->rpc, sizeof(conn **) * mc->rpcsize * 2);
+			rpc = (conn **) GC_REALLOC(mc->rpc, sizeof(conn **) * mc->rpcsize * 2);
 			if (!rpc) return false;
 			mc->rpc = rpc;
 			mc->rpcsize *= 2;

@@ -42,9 +42,10 @@ typedef struct _stritem {
 	uint8_t nkey;    // key length including padding but not null-terminator.
 	uint8_t nsuffix; // length of flags_and_data-length string.
 	int     nbytes;  // size of data.
-	char    data[];  // pointer to trailing data.
+	char    data[1];  // pointer to trailing data.
 } item;
 
+void item_init_system(void);
 item *item_get(const char *key, const size_t nkey);
 void item_remove(item *item);
 void item_update(item *item);

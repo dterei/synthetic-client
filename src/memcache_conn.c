@@ -18,7 +18,7 @@ static void process_hit_response(conn *c, token_t *tokens, size_t ntokens);
 static void process_miss_response(conn *c, token_t *tokens, size_t ntokens);
 
 // default memcached port.
-static char *memcache_port = "11211";
+static const char *memcache_port = "11211";
 
 // connect to a memcache server
 memcached_t* memcache_connect(struct event_base *base, char *host) {
@@ -33,9 +33,9 @@ memcached_t* memcache_connect(struct event_base *base, char *host) {
 	}
 
 	int slen = strlen(host);
-	char *port = memchr(host, ':', slen);
+	char *port = (char *) memchr(host, ':', slen);
 	if (port == NULL || (port - host) == slen) {
-		port = memcache_port;
+		port = (char *) memcache_port;
 	} else {
 		// XXX: Hack, we destroy the string...
 		*port = '\0';

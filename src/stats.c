@@ -11,12 +11,12 @@
 
 // create a new statistics value.
 statistics *new_stats(int size) {
-	statistics *s = RC_MALLOC(sizeof(statistics));
+	statistics *s = (statistics *) RC_MALLOC(sizeof(statistics));
 	pthread_mutex_init(&s->lock, NULL);
 	s->refcnt = 1;
 	s->clients = 0;
 	s->map_size = size;
-	s->map = RC_CALLOC(sizeof(client_stats*), size);
+	s->map = (client_stats **) RC_CALLOC(sizeof(client_stats*), size);
 	return s;
 }
 
@@ -31,7 +31,7 @@ client_stats *get_client_stats(statistics *s, int client_id) {
 	}
 
 	if (cs == NULL) {
-		cs = RC_CALLOC(sizeof(client_stats), 1);
+		cs = (client_stats *) RC_CALLOC(sizeof(client_stats), 1);
 		pthread_mutex_init(&cs->lock, NULL);
 		cs->client_id = client_id;
 		cs->refcnt = 2; // 1 for hashmap ref, one for return ref.

@@ -17,7 +17,7 @@
 #include <gc.h>
 #define GC_CALLOC(m,n) GC_MALLOC((m)*(n))
 
-static char *default_key = "skeleton";
+static const char* default_key = "skeleton";
 
 /* // process a memcached get(s) command. (we don't support CAS). This function */
 /* // performs the request parsing and setup of backend RPC's. */
