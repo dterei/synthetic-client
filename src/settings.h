@@ -21,7 +21,7 @@ typedef struct _settings {
 	int tcpport;
 	bool thread_affinity;
 	int users;
-	backends backends;
+	struct _backends backends;
 	statistics *stats;
 	double alloc_mean;
 	double alloc_stddev;

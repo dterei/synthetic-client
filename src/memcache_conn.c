@@ -23,10 +23,13 @@ static const char *memcache_port = "11211";
 // connect to a memcache server
 memcached_t* memcache_connect(struct event_base *base, char *host) {
 	int flags = 1, error = 0, sfd;
-	struct addrinfo hints = { .ai_socktype = SOCK_STREAM };
 	struct addrinfo *ai;
 	struct linger ling = {0, 0};
 	memcached_t *mc;
+
+	struct addrinfo hints;
+	bzero(&hints, sizeof(struct addrinfo));
+	hints.ai_socktype = SOCK_STREAM;
 
 	if (config.verbose > 0) {
 		fprintf(stderr, "Connecting to host %s...", host);
