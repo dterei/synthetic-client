@@ -23,6 +23,8 @@
 #include <ctype.h>
 #include <stdarg.h>
 
+#include <memory>
+
 // need this to get IOV_MAX on some platforms.
 #ifndef __need_IOV_MAX
 #define __need_IOV_MAX
@@ -159,12 +161,11 @@ conn *conn_new(enum conn_type type,
 	c->rpcdone = 0;
 	c->rpcwaiting = 0;
 
-	client_stats *cs = get_client_stats(config.stats, c->client_id);
+	std::shared_ptr<client_stats> cs = get_client_stats(config.stats, c->client_id);
 	mutex_lock(&cs->lock);
 	cs->total_connections++;
 	cs->live_connections++;
 	mutex_unlock(&cs->lock);
-	// NOTE: we've coallasced a decr + incr for local var and conn reference.
 	c->stats = cs;
 
 	event_set(&c->event, sfd, event_flags, event_handler, (void *)c);
@@ -214,9 +215,6 @@ void conn_close(conn *c) {
 		fprintf(stderr, "<%d connection closed.\n", c->sfd);
 	}
 	close(c->sfd);
-	if (refcount_decr(&c->stats->refcnt, &c->stats->lock) == 0) {
-		free_client_stats(c->stats);
-	}
 	c->stats = NULL;
 	if (c->mem_blob != NULL) {
 		/* free(c->mem_blob); */

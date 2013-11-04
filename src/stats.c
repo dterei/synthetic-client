@@ -5,15 +5,25 @@
 #include <pthread.h>
 #include <stdlib.h>
 
+#include <memory>
+
 #define GC_THREADS
 #include <gc.h>
 #define GC_CALLOC(m,n) GC_MALLOC((m)*(n))
+
+struct D {    // a verbose array deleter:
+	void operator()(client_stats* stats) {
+		if (config.verbose > 1) {
+			fprintf(stderr, "[deleter called: %d]\n", stats->client_id);
+		}
+		// delete[] p;
+	}
+};
 
 // create a new statistics value.
 statistics *new_stats(int size) {
 	statistics *s = (statistics *) RC_MALLOC(sizeof(statistics));
 	pthread_mutex_init(&s->lock, NULL);
-	s->refcnt = 1;
 	s->clients = 0;
 	s->map_size = size;
 	s->map = (client_stats **) RC_CALLOC(sizeof(client_stats*), size);
@@ -22,7 +32,7 @@ statistics *new_stats(int size) {
 
 // get the stats for a particular client (will create a new client_stats value
 // if needed).
-client_stats *get_client_stats(statistics *s, int client_id) {
+std::shared_ptr<client_stats> get_client_stats(statistics *s, int client_id) {
 	int key = client_id % s->map_size;
 	client_stats *cs = s->map[key];
 	
@@ -34,14 +44,17 @@ client_stats *get_client_stats(statistics *s, int client_id) {
 		cs = (client_stats *) RC_CALLOC(sizeof(client_stats), 1);
 		pthread_mutex_init(&cs->lock, NULL);
 		cs->client_id = client_id;
-		cs->refcnt = 2; // 1 for hashmap ref, one for return ref.
 		cs->next = s->map[key];
 		s->map[key] = cs;
-	} else {
-		refcount_incr(&cs->refcnt, &cs->lock);
 	}
 
-	return cs;
+	if (config.verbose > 1) {
+		fprintf(stderr, "[get_client_stats: %d]\n", cs->client_id);
+	}
+
+	std::shared_ptr<client_stats> shared_cs (cs, D());
+
+	return shared_cs;
 }
 
 // remove a clients stats structure.
@@ -63,16 +76,18 @@ void rm_client_stats(statistics *s, int client_id) {
 	} else {
 		prev->next = cs->next;
 	}
-	
-	// decr refcnt and maybe free.
-	if (refcount_decr(&cs->refcnt, &cs->lock) == 0) {
-		free_client_stats(cs);
+
+	if (config.verbose > 1) {
+		fprintf(stderr, "[rm_client_stats: %d]\n", cs->client_id);
 	}
 }
 
 // free a client stats structure.
-void free_client_stats(client_stats *cs) {
-	pthread_mutex_destroy(&cs->lock);
+void free_client_stats(std::shared_ptr<client_stats> cs) {
+	if (config.verbose > 1) {
+		fprintf(stderr, "[free client stats: %d]\n", cs->client_id);
+	}
+	/* pthread_mutex_destroy(&cs->lock); */
 	/* free(cs); */
 }
 
@@ -84,8 +99,7 @@ void stat_test_data(statistics *stats, int amount) {
 
 	for (int curr = 0; curr < amount; curr++) {
 		int client_id = rand();
-		client_stats *cs = get_client_stats(stats, client_id);
-		refcount_decr(&cs->refcnt, &cs->lock);
+		std::shared_ptr<client_stats> cs = get_client_stats(stats, client_id);
 	}
 }
 

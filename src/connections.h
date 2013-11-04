@@ -9,6 +9,9 @@
 #include <event.h>
 #include <stdbool.h>
 
+// C++ import for sharedptrs
+#include <memory>
+
 // size of initial read/write buffers for request/responses.
 #define DATA_BUFFER_SIZE 2048
 // Initial size of the sendmsg() scatter/gather array.
@@ -109,7 +112,7 @@ typedef struct _conn {
 	int          rpcdone;            // last+1 element in rpc[] that we've
 												// received response for.
 	
-	client_stats *stats;             // client specific stats.
+	std::shared_ptr<client_stats> stats;             // client specific stats.
 	void *mem_blob;                  // some random allocated memory for synthetic testing.
 	int   mem_free_delay;            // number of requests to wait before free'ing mem_blob.
 } conn;

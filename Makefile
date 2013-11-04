@@ -3,7 +3,7 @@ CC=c++
 BDWGC_VERSION=7.3
 BDWGC_LOC=${HOME}/Software/bdwgc-${BDWGC_VERSION}
 
-CFLAGS=-O2 -D_GNU_SOURCE -I/usr/local/include -I${BDWGC_LOC}/include
+CFLAGS=-std=c++11 -O2 -D_GNU_SOURCE -I/usr/local/include -I${BDWGC_LOC}/include
 LDFLAGS=-levent -pthread -lgsl -lgslcblas -lgc -L/usr/local/lib -L${BDWGC_LOC}/lib
 
 EXECUTABLE=server

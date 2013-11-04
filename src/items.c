@@ -6,15 +6,16 @@
 #include <string.h>
 #include <unistd.h>
 
+#define VAL_LEN 17
 static item *fixed_item = NULL;
 static const char *fixed_value = "key \0000 5\r\nhello\r\n";
 
 void item_init_system(void) {
-	fixed_item = (item *) malloc(offsetof(struct _stritem, data[7]));
+	fixed_item = (item *) malloc(offsetof(struct _stritem, data[VAL_LEN]));
 	fixed_item->nkey = 4;
 	fixed_item->nsuffix = 5;
 	fixed_item->nbytes = 7;
-	memcpy(fixed_item->data, fixed_value, 7);
+	memcpy(fixed_item->data, fixed_value, VAL_LEN);
 }
 
 // lookup a key-value.
