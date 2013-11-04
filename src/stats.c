@@ -5,10 +5,6 @@
 #include <pthread.h>
 #include <stdlib.h>
 
-#define GC_THREADS
-#include <gc.h>
-#define GC_CALLOC(m,n) GC_MALLOC((m)*(n))
-
 // create a new statistics value.
 statistics *new_stats(int size) {
 	statistics *s = RC_MALLOC(sizeof(statistics));
@@ -73,7 +69,7 @@ void rm_client_stats(statistics *s, int client_id) {
 // free a client stats structure.
 void free_client_stats(client_stats *cs) {
 	pthread_mutex_destroy(&cs->lock);
-	/* free(cs); */
+	free(cs);
 }
 
 // generate some test client data in stats.
