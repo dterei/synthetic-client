@@ -787,6 +787,10 @@ static void time_loop(const int fd, const short which, void *arg) {
 	fprintf(stderr, "running collection...\n");
 	while (GC_collect_a_little()) {}
 
-	if (++count % 6) GC_gcollect();
+   if (++count % 6 == 0) {
+      GC_gcollect();
+   } else {
+      while (GC_collect_a_little()) {}
+   }
 }
 
