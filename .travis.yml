@@ -1,1 +1,10 @@
 language: cpp
+
+before_install:
+  - travis_retry sudo apt-get update
+
+install:
+  - travis_retry sudo apt-get install libgsl0-dev libevent-dev
+
+script: make
+
