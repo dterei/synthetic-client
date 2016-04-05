@@ -1,5 +1,5 @@
 CC      := cc
-WARN    := -Wall -Wextra
+WARN    := #-Wall -Wextra
 CFLAGS  := $(WARN) -O2 -D_GNU_SOURCE -std=c99
 LDFLAGS := -pthread
 
