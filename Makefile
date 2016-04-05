@@ -1,30 +1,34 @@
-CC=c99
-CFLAGS=-O2 -D_GNU_SOURCE
-LDFLAGS=-lpthread
+CC      := cc
+WARN    := -Wall -Wextra
+CFLAGS  := $(WARN) -O2 -D_GNU_SOURCE -std=c99
+LDFLAGS := -pthread
 
-CFLAGS+=`pkg-config --cflags gsl libevent`
-LDFLAGS+=`pkg-config --libs gsl libevent`
+PKGCONF_CF := $(shell pkg-config --cflags gsl libevent)
+PKGCONF_LD := $(shell pkg-config --libs gsl libevent)
+CFLAGS  += $(PKGCONF_CF)
+LDFLAGS += $(PKGCONF_LD)
 
-EXECUTABLE=server
-SOURCE_FILES=commands.c connections.c items.c protocol.c server.c settings.c threads.c utils.c memcache_conn.c stats.c locking.c
-SOURCES=$(patsubst %,src/%,$(SOURCE_FILES))
-OBJECTS=$(patsubst %.c,build/%.o,$(SOURCE_FILES))
+SRCDIR := src
+OBJDIR := build
 
-all: $(SOURCES) $(EXECUTABLE)
+EXECUTABLE := server
+SOURCES    := $(wildcard $(SRCDIR)/*.c)
+OBJECTS    := $(patsubst $(SRCDIR)/%.c,$(OBJDIR)/%.o,$(SOURCES))
 
-.PHONY: clean
-clean:
-	rm -f server
-	rm -f build/*.o
+all: $(OBJECTS) $(EXECUTABLE)
+
+$(EXECUTABLE): $(OBJECTS)
+	$(CC) -o $@ $+ $(LDFLAGS)
 
 $(OBJECTS): | build
 
 build:
 	@mkdir -p $@
 
-$(EXECUTABLE): $(OBJECTS)
-	$(CC) -o $@ $+ $(LDFLAGS)
-
-build/%.o: src/%.c src/%.h
+build/%.o: $(SRCDIR)/%.c $(SRCDIR)/%.h
 	$(CC) $(CFLAGS) -c $< -o $@
 
+.PHONY: clean
+clean:
+	rm -f server
+	rm -rf build
